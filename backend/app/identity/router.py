@@ -65,6 +65,7 @@ async def verify_otp(
         platform=body.device.platform,
         device_label=body.device.label,
         push_token=body.device.push_token,
+        requested_role=body.role,
     )
     return _to_token_pair_out(pair)
 

@@ -12,7 +12,7 @@ from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.identity.models import DevicePlatform, RefreshToken, User
+from app.identity.models import DevicePlatform, RefreshToken, User, UserRole
 from app.identity.providers.sms import InMemorySmsProvider
 from app.identity.service import IdentityService
 from app.platform.config import Settings
@@ -265,6 +265,57 @@ async def test_verify_otp_existing_user_does_not_emit_registered(
         ]
     )
     assert user_registered_count == 1
+
+
+async def test_verify_otp_new_user_takes_requested_role(
+    service: IdentityService,
+) -> None:
+    req = await service.request_otp(PHONE)
+    assert req.debug_code is not None
+    pair = await service.verify_otp(
+        phone=PHONE,
+        code=req.debug_code,
+        platform=DevicePlatform.unknown,
+        device_label=None,
+        push_token=None,
+        requested_role=UserRole.business,
+    )
+    assert pair.user.role == UserRole.business
+
+
+async def test_verify_otp_existing_user_ignores_requested_role(
+    service: IdentityService,
+) -> None:
+    # First login — creates driver.
+    req1 = await service.request_otp(PHONE)
+    assert req1.debug_code is not None
+    first = await service.verify_otp(
+        phone=PHONE,
+        code=req1.debug_code,
+        platform=DevicePlatform.unknown,
+        device_label=None,
+        push_token=None,
+        requested_role=UserRole.driver,
+    )
+    assert first.user.role == UserRole.driver
+
+    # Second login on the same phone with role=business must be silently
+    # ignored. Promotion is an admin operation, not a self-service toggle.
+    from app.identity.otp_store import _cooldown_key
+
+    await service.otp.redis.delete(_cooldown_key(PHONE))
+    req2 = await service.request_otp(PHONE)
+    assert req2.debug_code is not None
+    second = await service.verify_otp(
+        phone=PHONE,
+        code=req2.debug_code,
+        platform=DevicePlatform.unknown,
+        device_label=None,
+        push_token=None,
+        requested_role=UserRole.business,
+    )
+    assert second.user.id == first.user.id
+    assert second.user.role == UserRole.driver
 
 
 async def test_phone_normalization_uniqueness(

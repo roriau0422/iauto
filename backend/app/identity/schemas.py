@@ -63,11 +63,24 @@ class OtpVerifyIn(BaseModel):
     phone: str
     code: str = Field(..., min_length=4, max_length=8, pattern=r"^\d+$")
     device: DeviceInfoIn = Field(default_factory=DeviceInfoIn)
+    # Role is only honoured for NEW users on first verification. Existing
+    # users keep the role assigned at their original registration; promotion
+    # between driver and business is an admin-only operation. Clients that
+    # don't pass a role get `driver` — the historical default.
+    role: UserRole = UserRole.driver
 
     @field_validator("phone")
     @classmethod
     def _normalize(cls, v: str) -> str:
         return normalize_phone(v)
+
+    @field_validator("role")
+    @classmethod
+    def _only_public_roles(cls, v: UserRole) -> UserRole:
+        # `admin` is never self-assignable over the public API.
+        if v == UserRole.admin:
+            raise ValueError("role must be 'driver' or 'business'")
+        return v
 
 
 class RefreshIn(BaseModel):

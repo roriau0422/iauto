@@ -115,6 +115,7 @@ class IdentityService:
         platform: DevicePlatform,
         device_label: str | None,
         push_token: str | None,
+        requested_role: UserRole = UserRole.driver,
     ) -> TokenPair:
         stored = await self.otp.get(phone)
         if stored is None:
@@ -136,7 +137,7 @@ class IdentityService:
         # Match — burn the OTP immediately to prevent replay.
         await self.otp.delete(phone)
 
-        user, is_new = await self._get_or_create_user(phone)
+        user, is_new = await self._get_or_create_user(phone, requested_role)
         device = await self.devices.create(
             user_id=user.id,
             platform=platform,
@@ -235,14 +236,20 @@ class IdentityService:
         code = secrets.randbelow(upper)
         return str(code).zfill(length)
 
-    async def _get_or_create_user(self, phone: str) -> tuple[User, bool]:
+    async def _get_or_create_user(
+        self, phone: str, requested_role: UserRole
+    ) -> tuple[User, bool]:
         existing = await self.users.get_by_phone(phone)
         if existing is not None:
+            # Existing users keep the role they registered with. We ignore
+            # `requested_role` silently — a returning driver who accidentally
+            # toggled the "I'm a business" switch should not suddenly become
+            # a business. Role changes are an admin-only operation.
             if not existing.phone_verified_at:
                 existing.phone_verified_at = datetime.now(UTC)
                 await self.session.flush()
             return existing, False
-        user = await self.users.create(phone=phone, role=UserRole.driver)
+        user = await self.users.create(phone=phone, role=requested_role)
         return user, True
 
     async def _issue_tokens(self, user: User, device: Device) -> TokenPair:
