@@ -104,9 +104,7 @@ class IdentityService:
 
         return RequestOtpResult(
             cooldown_seconds=self.settings.otp_resend_cooldown_seconds,
-            debug_code=code
-            if self.settings.sms_provider == SmsProviderKind.console
-            else None,
+            debug_code=code if self.settings.sms_provider == SmsProviderKind.console else None,
         )
 
     async def verify_otp(
@@ -259,13 +257,10 @@ class IdentityService:
             device=device,
         )
 
-    async def _create_refresh_row(
-        self, user: User, device: Device, plain: str
-    ) -> RefreshToken:
+    async def _create_refresh_row(self, user: User, device: Device, plain: str) -> RefreshToken:
         return await self.refresh_tokens.create(
             user_id=user.id,
             device_id=device.id,
             token_hash=hash_refresh_token(plain),
-            expires_at=datetime.now(UTC)
-            + timedelta(days=self.settings.jwt_refresh_ttl_days),
+            expires_at=datetime.now(UTC) + timedelta(days=self.settings.jwt_refresh_ttl_days),
         )

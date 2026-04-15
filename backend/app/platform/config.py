@@ -77,6 +77,17 @@ class Settings(BaseSettings):
     jwt_refresh_ttl_days: int = 30
     jwt_issuer: str = "iauto"
 
+    # Column-level encryption — both keys must be supplied, no dev defaults.
+    #   app_data_key   — Fernet key (32 raw bytes, base64-urlsafe encoded,
+    #                    44-char ASCII). Generate with:
+    #                      python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    #   app_search_key — HMAC-SHA256 key (32 raw bytes, hex-encoded,
+    #                    64-char ASCII). Generate with:
+    #                      python -c "import secrets; print(secrets.token_hex(32))"
+    # App fails to start if either is missing — see `app.platform.crypto`.
+    app_data_key: str
+    app_search_key: str
+
     # OTP
     otp_ttl_seconds: int = 300
     otp_length: int = 6

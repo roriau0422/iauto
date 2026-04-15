@@ -91,9 +91,7 @@ class MessageProSmsProvider:
                 body=response.text[:500],
                 to=to,
             )
-            raise SmsSendError(
-                f"SMS provider returned HTTP {response.status_code}"
-            )
+            raise SmsSendError(f"SMS provider returned HTTP {response.status_code}")
         logger.info("messagepro_send_ok", to=to, status=response.status_code)
 
 
@@ -101,8 +99,7 @@ def make_sms_provider(settings: Settings) -> SmsProvider:
     if settings.sms_provider == SmsProviderKind.messagepro:
         if not settings.messagepro_base_url or not settings.messagepro_api_key:
             raise RuntimeError(
-                "SMS_PROVIDER=messagepro but MESSAGEPRO_BASE_URL or "
-                "MESSAGEPRO_API_KEY are empty"
+                "SMS_PROVIDER=messagepro but MESSAGEPRO_BASE_URL or MESSAGEPRO_API_KEY are empty"
             )
         return MessageProSmsProvider(
             base_url=str(settings.messagepro_base_url),

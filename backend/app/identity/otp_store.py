@@ -4,9 +4,16 @@ OTPs live only in Redis — not Postgres. They're ephemeral, have strict TTLs,
 and we don't want an audit record of the codes themselves. On verify the key
 is deleted to prevent replay.
 
-Layout:
-    otp:{phone}           JSON {code, attempts}   TTL = OTP_TTL_SECONDS
-    otp:cooldown:{phone}  "1"                      TTL = OTP_RESEND_COOLDOWN_SECONDS
+Redis keys use the HMAC-SHA256 blind-index fingerprint of the phone, not the
+phone itself, so a Redis dump cannot be used to enumerate active OTPs by
+phone number. The fingerprint is the same one `users.phone_search` stores,
+so other code paths that need to match an OTP against a user can compute
+the same key deterministically.
+
+Layout (hash = `get_search_index().compute(phone)`, 64 hex chars):
+
+    otp:{hash}           JSON {code, attempts}   TTL = OTP_TTL_SECONDS
+    otp:cooldown:{hash}  "1"                      TTL = OTP_RESEND_COOLDOWN_SECONDS
 """
 
 from __future__ import annotations
@@ -17,14 +24,19 @@ from dataclasses import dataclass
 from redis.asyncio import Redis
 
 from app.platform.config import Settings
+from app.platform.crypto import get_search_index
+
+
+def _phone_fingerprint(phone: str) -> str:
+    return get_search_index().compute(phone)
 
 
 def _otp_key(phone: str) -> str:
-    return f"otp:{phone}"
+    return f"otp:{_phone_fingerprint(phone)}"
 
 
 def _cooldown_key(phone: str) -> str:
-    return f"otp:cooldown:{phone}"
+    return f"otp:cooldown:{_phone_fingerprint(phone)}"
 
 
 @dataclass(slots=True)

@@ -29,9 +29,7 @@ def service(
     sms: InMemorySmsProvider,
     settings: Settings,
 ) -> IdentityService:
-    return IdentityService(
-        session=db_session, redis=redis, sms=sms, settings=settings
-    )
+    return IdentityService(session=db_session, redis=redis, sms=sms, settings=settings)
 
 
 async def test_request_otp_sends_message_and_returns_code(
@@ -77,10 +75,14 @@ async def test_verify_otp_creates_user_and_tokens(
 
     # A user_registered and session_started outbox row should exist.
     rows = (
-        await db_session.execute(
-            select(OutboxEvent).where(OutboxEvent.aggregate_id == pair.user.id)
+        (
+            await db_session.execute(
+                select(OutboxEvent).where(OutboxEvent.aggregate_id == pair.user.id)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     event_types = {r.event_type for r in rows}
     assert "identity.user_registered" in event_types
     assert "identity.session_started" in event_types
@@ -167,9 +169,7 @@ async def test_refresh_rotates_and_revokes_prior_token(
     assert second.refresh_token != first.refresh_token
 
     # Old token now revoked, new one active.
-    rows = (
-        await db_session.execute(select(RefreshToken))
-    ).scalars().all()
+    rows = (await db_session.execute(select(RefreshToken))).scalars().all()
     revoked = [r for r in rows if r.revoked_at is not None]
     assert len(revoked) == 1
     assert revoked[0].replaced_by_id is not None
@@ -232,8 +232,12 @@ async def test_verify_otp_existing_user_does_not_emit_registered(
     )
 
     # Second login on the same phone — user already exists.
-    # Clear cooldown first.
-    await service.otp.redis.delete(f"otp:cooldown:{PHONE}")
+    # Clear cooldown first. The OTP store hashes the phone into the Redis
+    # key via the blind-index fingerprint, so import its helper rather than
+    # hand-building the key.
+    from app.identity.otp_store import _cooldown_key
+
+    await service.otp.redis.delete(_cooldown_key(PHONE))
     req2 = await service.request_otp(PHONE)
     assert req2.debug_code is not None
     pair2 = await service.verify_otp(
@@ -252,9 +256,7 @@ async def test_verify_otp_existing_user_does_not_emit_registered(
             r
             for r in (
                 await db_session.execute(
-                    select(OutboxEvent).where(
-                        OutboxEvent.aggregate_id == pair1.user.id
-                    )
+                    select(OutboxEvent).where(OutboxEvent.aggregate_id == pair1.user.id)
                 )
             )
             .scalars()

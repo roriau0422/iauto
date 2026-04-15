@@ -31,9 +31,7 @@ class AccessTokenClaims:
     iss: str
 
 
-def issue_access_token(
-    user: User, device_id: uuid.UUID, settings: Settings
-) -> tuple[str, int]:
+def issue_access_token(user: User, device_id: uuid.UUID, settings: Settings) -> tuple[str, int]:
     now = datetime.now(UTC)
     exp = now + timedelta(minutes=settings.jwt_access_ttl_minutes)
     payload = {

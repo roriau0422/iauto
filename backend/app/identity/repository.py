@@ -13,6 +13,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.identity.models import Device, DevicePlatform, RefreshToken, User, UserRole
+from app.identity.schemas import normalize_phone
+from app.platform.crypto import get_search_index
 
 
 class UserRepository:
@@ -23,7 +25,11 @@ class UserRepository:
         return await self.session.get(User, user_id)
 
     async def get_by_phone(self, phone: str) -> User | None:
-        result = await self.session.execute(select(User).where(User.phone == phone))
+        # Equality lookups against encrypted columns run against the blind
+        # index. Normalize first so `"88110921"` and `"+97688110921"`
+        # resolve to the same row the setter wrote.
+        search = get_search_index().compute(normalize_phone(phone))
+        result = await self.session.execute(select(User).where(User.phone_search == search))
         return result.scalar_one_or_none()
 
     async def create(

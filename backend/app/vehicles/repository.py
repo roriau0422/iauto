@@ -9,12 +9,14 @@ from typing import Any
 from sqlalchemy import and_, delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.platform.crypto import get_search_index
 from app.vehicles.models import (
     Vehicle,
     VehicleLookupPlan,
     VehicleLookupReport,
     VehicleOwnership,
     VerificationSource,
+    normalize_vin,
 )
 
 
@@ -26,7 +28,9 @@ class VehicleRepository:
         return await self.session.get(Vehicle, vehicle_id)
 
     async def get_by_vin(self, vin: str) -> Vehicle | None:
-        result = await self.session.execute(select(Vehicle).where(Vehicle.vin == vin))
+        # Equality lookup against the encrypted column → blind index.
+        search = get_search_index().compute(normalize_vin(vin))
+        result = await self.session.execute(select(Vehicle).where(Vehicle.vin_search == search))
         return result.scalar_one_or_none()
 
     async def create(
