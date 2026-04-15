@@ -1,0 +1,1289 @@
+{
+  "components": {
+    "schemas": {
+      "DeviceInfoIn": {
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/DevicePlatform",
+            "default": "unknown"
+          },
+          "push_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Push Token"
+          }
+        },
+        "title": "DeviceInfoIn",
+        "type": "object"
+      },
+      "DevicePlatform": {
+        "enum": [
+          "ios",
+          "android",
+          "web",
+          "unknown"
+        ],
+        "title": "DevicePlatform",
+        "type": "string"
+      },
+      "EmptyOut": {
+        "properties": {
+          "ok": {
+            "default": true,
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "title": "EmptyOut",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HealthResponse": {
+        "properties": {
+          "service": {
+            "default": "iauto-backend",
+            "title": "Service",
+            "type": "string"
+          },
+          "status": {
+            "const": "ok",
+            "default": "ok",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "title": "HealthResponse",
+        "type": "object"
+      },
+      "LogoutIn": {
+        "properties": {
+          "refresh_token": {
+            "title": "Refresh Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "refresh_token"
+        ],
+        "title": "LogoutIn",
+        "type": "object"
+      },
+      "LookupPlanEndpointOut": {
+        "properties": {
+          "body_template": {
+            "additionalProperties": true,
+            "title": "Body Template",
+            "type": "object"
+          },
+          "headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Headers",
+            "type": "object"
+          },
+          "method": {
+            "title": "Method",
+            "type": "string"
+          },
+          "slots": {
+            "additionalProperties": true,
+            "title": "Slots",
+            "type": "object"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "method",
+          "url",
+          "headers",
+          "body_template",
+          "slots"
+        ],
+        "title": "LookupPlanEndpointOut",
+        "type": "object"
+      },
+      "LookupPlanOut": {
+        "properties": {
+          "endpoint": {
+            "$ref": "#/components/schemas/LookupPlanEndpointOut"
+          },
+          "expected": {
+            "additionalProperties": true,
+            "title": "Expected",
+            "type": "object"
+          },
+          "plan_version": {
+            "title": "Plan Version",
+            "type": "string"
+          },
+          "service_code": {
+            "title": "Service Code",
+            "type": "string"
+          },
+          "ttl_seconds": {
+            "title": "Ttl Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "plan_version",
+          "service_code",
+          "endpoint",
+          "expected",
+          "ttl_seconds"
+        ],
+        "title": "LookupPlanOut",
+        "type": "object"
+      },
+      "LookupReportIn": {
+        "properties": {
+          "error_snippet": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Snippet"
+          },
+          "plan_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Version"
+          },
+          "plate": {
+            "title": "Plate",
+            "type": "string"
+          },
+          "status_code": {
+            "maximum": 599.0,
+            "minimum": 100.0,
+            "title": "Status Code",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "plate",
+          "status_code"
+        ],
+        "title": "LookupReportIn",
+        "type": "object"
+      },
+      "LookupReportOut": {
+        "properties": {
+          "alert_fired": {
+            "title": "Alert Fired",
+            "type": "boolean"
+          },
+          "operator_notified": {
+            "title": "Operator Notified",
+            "type": "boolean"
+          },
+          "received": {
+            "const": true,
+            "default": true,
+            "title": "Received",
+            "type": "boolean"
+          },
+          "window_count": {
+            "title": "Window Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "alert_fired",
+          "window_count",
+          "operator_notified"
+        ],
+        "title": "LookupReportOut",
+        "type": "object"
+      },
+      "OtpRequestIn": {
+        "properties": {
+          "phone": {
+            "examples": [
+              "+97688110921",
+              "88110921"
+            ],
+            "title": "Phone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "phone"
+        ],
+        "title": "OtpRequestIn",
+        "type": "object"
+      },
+      "OtpRequestOut": {
+        "properties": {
+          "cooldown_seconds": {
+            "title": "Cooldown Seconds",
+            "type": "integer"
+          },
+          "debug_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Debug Code"
+          },
+          "sent": {
+            "default": true,
+            "title": "Sent",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "cooldown_seconds"
+        ],
+        "title": "OtpRequestOut",
+        "type": "object"
+      },
+      "OtpVerifyIn": {
+        "properties": {
+          "code": {
+            "maxLength": 8,
+            "minLength": 4,
+            "pattern": "^\\d+$",
+            "title": "Code",
+            "type": "string"
+          },
+          "device": {
+            "$ref": "#/components/schemas/DeviceInfoIn"
+          },
+          "phone": {
+            "title": "Phone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "phone",
+          "code"
+        ],
+        "title": "OtpVerifyIn",
+        "type": "object"
+      },
+      "ReadinessResponse": {
+        "properties": {
+          "database": {
+            "title": "Database",
+            "type": "boolean"
+          },
+          "redis": {
+            "title": "Redis",
+            "type": "boolean"
+          },
+          "status": {
+            "enum": [
+              "ready",
+              "degraded"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "database",
+          "redis"
+        ],
+        "title": "ReadinessResponse",
+        "type": "object"
+      },
+      "RefreshIn": {
+        "properties": {
+          "refresh_token": {
+            "title": "Refresh Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "refresh_token"
+        ],
+        "title": "RefreshIn",
+        "type": "object"
+      },
+      "TokenPairOut": {
+        "properties": {
+          "access_token": {
+            "title": "Access Token",
+            "type": "string"
+          },
+          "expires_in": {
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "refresh_token": {
+            "title": "Refresh Token",
+            "type": "string"
+          },
+          "token_type": {
+            "const": "Bearer",
+            "default": "Bearer",
+            "title": "Token Type",
+            "type": "string"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserOut"
+          }
+        },
+        "required": [
+          "access_token",
+          "refresh_token",
+          "expires_in",
+          "user"
+        ],
+        "title": "TokenPairOut",
+        "type": "object"
+      },
+      "UserOut": {
+        "properties": {
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "phone": {
+            "title": "Phone",
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/UserRole"
+          }
+        },
+        "required": [
+          "id",
+          "phone",
+          "role",
+          "display_name",
+          "avatar_url"
+        ],
+        "title": "UserOut",
+        "type": "object"
+      },
+      "UserRole": {
+        "enum": [
+          "driver",
+          "business",
+          "admin"
+        ],
+        "title": "UserRole",
+        "type": "string"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "VehicleDeleteOut": {
+        "properties": {
+          "ok": {
+            "const": true,
+            "default": true,
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "title": "VehicleDeleteOut",
+        "type": "object"
+      },
+      "VehicleListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/VehicleOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "VehicleListOut",
+        "type": "object"
+      },
+      "VehicleOut": {
+        "properties": {
+          "build_year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Build Year"
+          },
+          "capacity_cc": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capacity Cc"
+          },
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "engine_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Engine Number"
+          },
+          "first_seen_at": {
+            "format": "date-time",
+            "title": "First Seen At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_seen_at": {
+            "format": "date-time",
+            "title": "Last Seen At",
+            "type": "string"
+          },
+          "make": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Make"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "plate": {
+            "title": "Plate",
+            "type": "string"
+          },
+          "verification_source": {
+            "$ref": "#/components/schemas/VerificationSource"
+          },
+          "vin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vin"
+          }
+        },
+        "required": [
+          "id",
+          "vin",
+          "plate",
+          "make",
+          "model",
+          "build_year",
+          "color",
+          "engine_number",
+          "capacity_cc",
+          "verification_source",
+          "first_seen_at",
+          "last_seen_at"
+        ],
+        "title": "VehicleOut",
+        "type": "object"
+      },
+      "VehicleRegisterIn": {
+        "properties": {
+          "plate": {
+            "title": "Plate",
+            "type": "string"
+          },
+          "xyp": {
+            "$ref": "#/components/schemas/XypPayloadIn"
+          }
+        },
+        "required": [
+          "plate",
+          "xyp"
+        ],
+        "title": "VehicleRegisterIn",
+        "type": "object"
+      },
+      "VehicleRegisterOut": {
+        "properties": {
+          "already_owned": {
+            "title": "Already Owned",
+            "type": "boolean"
+          },
+          "vehicle": {
+            "$ref": "#/components/schemas/VehicleOut"
+          },
+          "was_new_vehicle": {
+            "title": "Was New Vehicle",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "vehicle",
+          "was_new_vehicle",
+          "already_owned"
+        ],
+        "title": "VehicleRegisterOut",
+        "type": "object"
+      },
+      "VerificationSource": {
+        "enum": [
+          "xyp_public",
+          "manual"
+        ],
+        "title": "VerificationSource",
+        "type": "string"
+      },
+      "XypPayloadIn": {
+        "additionalProperties": true,
+        "description": "Raw XYP response the client captured on a successful on-device lookup.\n\nThe client MUST pass this through untouched so we can store it verbatim\nin `vehicles.raw_xyp` for later auditing. Individual fields below are\nparsed from this payload during registration.\n\nField names match smartcar.mn's real wire format — camelCase upstream,\nwhich is why each line ignores `N815` (non-lowercase variable names).",
+        "properties": {
+          "buildYear": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buildyear"
+          },
+          "cabinNumber": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cabinnumber"
+          },
+          "capacity": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capacity"
+          },
+          "colorName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Colorname"
+          },
+          "markName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Markname"
+          },
+          "modelName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modelname"
+          },
+          "motorNumber": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motornumber"
+          }
+        },
+        "title": "XypPayloadIn",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "iAuto API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/v1/auth/logout": {
+      "post": {
+        "operationId": "logout_v1_auth_logout_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LogoutIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmptyOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke a refresh token",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/v1/auth/otp/request": {
+      "post": {
+        "operationId": "request_otp_v1_auth_otp_request_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OtpRequestIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OtpRequestOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request an OTP for a phone number",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/v1/auth/otp/verify": {
+      "post": {
+        "operationId": "verify_otp_v1_auth_otp_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OtpVerifyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenPairOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verify an OTP and receive a token pair",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/v1/auth/refresh": {
+      "post": {
+        "operationId": "refresh_v1_auth_refresh_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenPairOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rotate a refresh token",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/v1/health": {
+      "get": {
+        "operationId": "health_v1_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Liveness probe",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/v1/me": {
+      "get": {
+        "operationId": "me_v1_me_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Return the currently authenticated user",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/v1/ready": {
+      "get": {
+        "operationId": "ready_v1_ready_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Readiness probe",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/v1/vehicles": {
+      "get": {
+        "operationId": "list_vehicles_v1_vehicles_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List the authenticated user's vehicles",
+        "tags": [
+          "vehicles"
+        ]
+      },
+      "post": {
+        "operationId": "register_vehicle_v1_vehicles_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VehicleRegisterIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleRegisterOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register a vehicle from a client-captured XYP payload",
+        "tags": [
+          "vehicles"
+        ]
+      }
+    },
+    "/v1/vehicles/lookup/plan": {
+      "get": {
+        "operationId": "get_lookup_plan_v1_vehicles_lookup_plan_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LookupPlanOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Current client-side XYP lookup plan",
+        "tags": [
+          "vehicles"
+        ]
+      }
+    },
+    "/v1/vehicles/lookup/report": {
+      "post": {
+        "operationId": "report_lookup_failure_v1_vehicles_lookup_report_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LookupReportIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LookupReportOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Report a client-side XYP lookup failure",
+        "tags": [
+          "vehicles"
+        ]
+      }
+    },
+    "/v1/vehicles/{vehicle_id}": {
+      "delete": {
+        "operationId": "delete_vehicle_v1_vehicles__vehicle_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "vehicle_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Vehicle Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleDeleteOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unregister a vehicle (owner-only, leaves the vehicle row intact)",
+        "tags": [
+          "vehicles"
+        ]
+      }
+    }
+  }
+}

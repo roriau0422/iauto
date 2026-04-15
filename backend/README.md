@@ -47,6 +47,18 @@ mypy app
 pytest
 ```
 
+## OpenAPI snapshot
+
+The live OpenAPI spec is at `/openapi.json` on the running server. A
+committed snapshot at `../shared/openapi/v1.json` is the mobile-codegen
+source and the CI drift-detection target — regenerate it whenever a route
+or response model changes:
+
+```bash
+venv/Scripts/python.exe scripts/gen_openapi.py          # regenerate
+venv/Scripts/python.exe scripts/gen_openapi.py --check  # fail if stale
+```
+
 ## Layout
 
 Contexts live under `app/`. Shared infra in `app/platform/`. HTTP routers

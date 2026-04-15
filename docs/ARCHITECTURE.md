@@ -1,7 +1,7 @@
 # iAuto — System Architecture
 
 **Status:** initial plan, pre-implementation
-**Date:** 2026-04-15
+**Date:** 2026-04-02
 **Backend:** FastAPI (async)
 **Mobile:** React Native via Expo (dev client / bare-adjacent)
 **Scope source:** `docs/iAuto.docx.pdf`
@@ -10,7 +10,7 @@
 
 ## 1. Product in one paragraph
 
-iAuto is a super-app for Mongolian drivers and auto businesses. A driver registers their vehicles via the government registry (АТҮТ), searches for parts (text or image), chats with suppliers, reserves items for 24 hours, pays taxes/insurance/fines via QPay, logs service history, and — the two headline new features — gets AI-driven mechanical diagnosis and a data-driven market valuation of their car. Businesses manage inventory (warehouse), post stories, run targeted paid ads, and compete on ratings. The long-term moat is a data flywheel: every diagnosis, repair, sale, and warehouse event feeds the valuation and diagnostic models, which are impossible to replicate without owning the same ecosystem.
+iAuto is a super-app for Mongolian drivers and auto businesses. A driver registers their vehicles via a plate-number lookup against the Mongolian government vehicle registry (exposed through the smartcar.mn XYP gateway; the lookup is executed by the mobile app on-device, not by the iAuto backend — see §3.7), searches for parts (text or image), chats with suppliers, reserves items for 24 hours, pays taxes/insurance/fines via QPay, logs service history, and — the two headline new features — gets AI-driven mechanical diagnosis and a data-driven market valuation of their car. Businesses manage inventory (warehouse), post stories, run targeted paid ads, and compete on ratings. The long-term moat is a data flywheel: every diagnosis, repair, sale, and warehouse event feeds the valuation and diagnostic models, which are impossible to replicate without owning the same ecosystem.
 
 This is a marketplace + social + fintech + ML product in one. The architecture must reflect that it is **not a CRUD app**.
 
@@ -40,7 +40,7 @@ One FastAPI app, one deployable, organized by context. No cross-context direct d
 backend/
   app/
     identity/       # OTP, sessions, JWT+refresh, device registry, RBAC
-    vehicles/       # registration, АТҮТ integration, service history, technical passport
+    vehicles/       # registration via client-side XYP plan, service history, technical passport
     catalog/        # country→brand→model taxonomy, part categories
     marketplace/    # part-search requests, quotes, 24h reservations, sales, ratings
     chat/           # 1:1 messaging, presence, attachments
@@ -118,14 +118,36 @@ Events are the raw fuel for analytics rollups and ML training. The same consumer
 - Roles: `driver`, `business`, `admin`. Business accounts also carry a `tenant_id` scoping their warehouse, stories, ads, and reports.
 - Every repository query that touches tenant-scoped tables takes `tenant_id` as a required argument. This is enforced in code review and a lint-level check, not in the database.
 
-### 3.7 АТҮТ (government registry) integration — resilience is mandatory
+### 3.7 Vehicle lookup — client-side smartcar.mn XYP gateway
 
-Government APIs are unreliable. The vehicle-registration flow must not fail when АТҮТ is down.
+Mongolia's government vehicle data is exposed through **smartcar.mn's public XYP gateway** (`https://xyp-api.smartcar.mn/xyp-api/v1/xyp/get-data-public`, service code `WS100401_getVehicleInfo`). The gateway expects a browser-impersonating header set from a legitimate smartcar.mn session — `Origin` / `Referer` of `https://smartcar.mn`, custom `os: web`, `version: 3.2.0`, and a Chrome `User-Agent`. A single iAuto backend IP calling this endpoint at scale is indistinguishable from a scraper and would be rate-limited or blocked within days.
 
-- Aggressive caching (vehicle registry data changes rarely — cache 24h, refresh on explicit user request).
-- Circuit breaker with exponential backoff.
-- Graceful degradation: if АТҮТ is unreachable, accept manual entry (make, model, year, VIN) and mark the vehicle `unverified`. An Arq job retries verification in the background and promotes the record to `verified` when successful.
-- Every call logged to a dedicated `atut_calls` table for debugging and rate budget tracking.
+**The backend never calls smartcar.mn or xyp.gov.mn.** The mobile app runs the lookup on-device — every request looks like an individual user's browser session to the gateway, fanned out across thousands of residential IPs. The server owns the *plan* the client executes, not the execution.
+
+**Lookup plan** (`vehicle_lookup_plans` table; exactly one row active at a time via a partial unique index on `is_active=true`):
+
+- `endpoint_url`, `endpoint_method`, `headers`, `body_template`, `slots`, `expected`, `ttl_seconds`
+- `expected.fields` lists the shape of a successful flat-JSON response (`markName`, `modelName`, `buildYear`, `cabinNumber` (VIN), `colorName`, `capacity`, `fuelType`, …)
+- `expected.error_signatures` ships classifier rules for non-2xx bodies. Each entry has a `match` (`status` + `body_contains_any`), a `category`, an `alert_operator` flag, and `client_message_mn` / `client_message_en`
+- Rotating smartcar's reverse-engineered headers — which change under anti-bot pressure — is a DB update, not a mobile release
+
+**Mobile client flow:**
+
+1. `GET /v1/vehicles/lookup/plan` — public, `Cache-Control: public, max-age={ttl_seconds}`
+2. Substitute the user's plate into `body_template.customFields.plateNumber`
+3. `POST` to `endpoint.url` with the plan's headers
+4. On HTTP 200 (flat JSON body): `POST /v1/vehicles` with the raw payload for dedup + registration
+5. On non-2xx: match the response against `expected.error_signatures`
+   - matching signature → show `client_message_mn` to the user and stop (e.g. a `HTTP 400` with `text/plain;charset=UTF-8` body containing `олдсонгүй` means "plate not in registry" — a user typo, not an outage, and must never page the operator)
+   - no match → `POST /v1/vehicles/lookup/report` with the raw error; the backend pages the operator
+
+**Trust model for the returned payload:** the server treats the client-posted XYP data as untrusted input. Physical cars are deduped by `vehicles.vin` via a partial unique index (`WHERE vin IS NOT NULL`), and ownership is many-to-many via a `vehicle_ownerships (user_id, vehicle_id)` composite-PK pivot — the same physical car can be registered by several drivers (family, dealer + driver, business + employee) without duplicating the `vehicles` row. Forgery mitigation is a future moderation pass on VIN collisions; no automated detection yet.
+
+**Operator pager** (`app/vehicles/alerts.py`): a Redis `INCR` keyed by status bucket (`5xx`, `3xx`, exact `4xx`) with `TTL = XYP_ALERT_WINDOW_SECONDS` (default 900 s). The first failure in a fresh window fires a MessagePro SMS to `OPERATOR_PHONE`; subsequent failures within the window only bump the counter. SMS body is budgeted at **168 characters**, not 180 — MessagePro auto-appends a `" Navi market"` sender tag (12 chars) to every outbound message.
+
+**Defence in depth:** `VehiclesService._is_user_input_error` re-runs the `олдсонгүй`-class match on the server before paging. A buggy client that misreports a not-found 400 as an outage still produces a `vehicle_lookup_reports` row and a `vehicles.lookup_failed` event for audit, but no SMS fires.
+
+**Upgrade path:** if iAuto ever obtains legitimate direct XYP / ATYT credentials, a server-side executor slots in behind a `LookupExecutor` abstraction without breaking the mobile contract. The client still calls `GET /v1/vehicles/lookup/plan`; the plan returns `{"executor": "server"}`, and the client `POST`s the plate to a new `/v1/vehicles/lookup/execute` endpoint. The aggressive-cache / circuit-breaker / background-re-verification story that used to live in this section applies at that point — not before.
 
 ### 3.8 Payments — QPay
 
@@ -369,7 +391,7 @@ Assumes 4–6 engineers. Each phase is 4–6 weeks. Double the timeline if the t
 - FastAPI skeleton with identity + vehicles + catalog contexts.
 - Expo app skeleton with navigation and generated API client.
 - OTP auth end-to-end.
-- Vehicle registration with АТҮТ integration and graceful fallback.
+- Vehicle registration via client-side smartcar.mn XYP lookup, with a versioned server-controlled lookup plan and a MessagePro-backed operator pager for gateway failures (see §3.7).
 - Outbox and event store plumbing.
 
 ### Phase 1 — core marketplace (weeks 5–10)
@@ -416,7 +438,7 @@ Assumes 4–6 engineers. Each phase is 4–6 weeks. Double the timeline if the t
 
 ## 12. Risks and gates
 
-- **АТҮТ API stability** — architectural resilience mitigates but does not eliminate. Track incident frequency.
+- **smartcar.mn XYP gateway stability** — the mobile client absorbs transient failures per request; recurring outages are paged to the operator via the coalesced SMS alert (§3.7). If smartcar rotates their anti-bot header set, rotate the active row in `vehicle_lookup_plans` — no mobile release needed. If smartcar blocks wholesale, fall back to manual plate entry (`verification_source = 'manual'`) until a direct XYP credential is obtained.
 - **Scraping legality** — phase 4 gate. If blocked, the valuation model starts with a smaller feature set and uses platform data as the primary signal.
 - **LLM cost blowup** — cost controls are mandatory from day one of phase 3. Not optional.
 - **Chat scale** — Redis Pub/Sub handles tens of thousands of concurrent users comfortably; revisit if approaching that number.
@@ -434,8 +456,8 @@ Assumes 4–6 engineers. Each phase is 4–6 weeks. Double the timeline if the t
 5. Dashboard lights are a classifier problem, not a CLIP similarity problem.
 6. Engine sounds are not a Whisper problem — multimodal LLM or a specialized classifier.
 7. Expo dev client, not managed. Plan native-module access from day one.
-8. OpenAPI contract-first with generated mobile client. Zero drift.
+8. OpenAPI contract-first with generated mobile client. Zero drift. The live spec is served at `/openapi.json`; a committed snapshot at `shared/openapi/v1.json` is the mobile-codegen source and the CI drift-detection target. Regenerate the snapshot whenever a route or schema changes.
 9. SQLAdmin as the admin panel until it breaks. Don't build a dashboard from scratch.
 10. Repository-layer `tenant_id` filtering. No Postgres RLS.
-11. АТҮТ calls must be cache-first with circuit breaker and manual-entry fallback.
+11. Vehicle XYP lookups are client-side. The mobile app executes the smartcar.mn call on-device using a versioned server-controlled plan; the backend never holds an HTTP client to the gateway. Physical cars dedup by VIN via a partial unique index; ownership is many-to-many via `vehicle_ownerships`. Operator alerts are Redis-coalesced and paged via MessagePro (168-char body budget accounting for the auto-appended `" Navi market"` sender suffix).
 12. AI cost controls (rate limit, model routing, embedding cache, spend alerts) are built into phase 3, not bolted on after a billing surprise.
