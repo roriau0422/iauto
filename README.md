@@ -21,8 +21,12 @@ iauto/
 
 1. Read `docs/ARCHITECTURE.md` end-to-end — committed decisions live there.
 2. Read `CLAUDE.md` for workflow rules and tooling conventions.
-3. For day-to-day backend work see `backend/README.md` once it ships.
+3. For day-to-day backend work see `backend/README.md`.
 
 ## Status
 
-Pre-implementation. Phase 0 scaffold in progress — see `tasks/todo.md`.
+**Phase 0 complete. Phase 1 session 4 shipped.** Backend-only so far.
+
+Implemented contexts: `identity`, `vehicles`, `catalog`, `businesses`, `marketplace` (driver-side RFQ slice), `platform`, `workers` (Arq outbox consumer). See `CLAUDE.md` for the full status table and the list of contexts still ahead in phase 1.
+
+Mobile app (Expo), `chat`, `stories`, `ads`, `warehouse`, `payments`, `ai_mechanic`, `valuation`, `notifications`, `moderation`, and `analytics` contexts are deliberately deferred to later sessions.

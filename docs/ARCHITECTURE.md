@@ -112,11 +112,13 @@ Events are the raw fuel for analytics rollups and ML training. The same consumer
 
 ### 3.6 Auth and tenancy
 
-- Phone + OTP as the only identity factor. OTP delivery via SMS provider (operator choice; abstract behind a provider interface from day one).
-- JWT access token (15 min) + refresh token (30 days, rotating). Refresh tokens stored hashed in DB with device binding.
+- Phone + OTP as the only identity factor. OTP delivery via SMS provider (operator choice; abstract behind a provider interface from day one). Phase 0 ships MessagePro as the sole rail.
+- JWT access token (15 min) + refresh token (30 days, rotating). Refresh tokens stored hashed in DB with device binding; reuse of a revoked refresh token revokes the whole device chain.
 - Multi-device allowed (spec 2.3). Device table tracks active sessions for revocation.
-- Roles: `driver`, `business`, `admin`. Business accounts also carry a `tenant_id` scoping their warehouse, stories, ads, and reports.
-- Every repository query that touches tenant-scoped tables takes `tenant_id` as a required argument. This is enforced in code review and a lint-level check, not in the database.
+- Roles: `driver`, `business`, `admin`. The role can be selected at `POST /v1/auth/otp/verify` for **new** users only (`admin` is never self-assignable — rejected at the schema layer). Returning users keep their original role; promotion between `driver` and `business` is an admin-only operation.
+- **Tenant model:** a user with `role='business'` owns exactly one `businesses` row (partial unique on `businesses.owner_id`). `businesses.id` is the `tenant_id` every tenant-scoped table will carry (warehouse items, stories, ads, reports, and the quotes side of the marketplace). A `business_members` pivot can add multi-staff later without a schema rewrite. `businesses.contact_phone` is an optional override encrypted with the same Fernet + HMAC blind-index envelope as `users.phone`.
+- `get_current_business` FastAPI dependency resolves the authenticated user to their `Business` row — 403 for non-business roles, 404 when no profile exists yet. This is the gate every tenant-scoped endpoint uses.
+- Every repository query that touches tenant-scoped tables takes `tenant_id` as a required argument. Enforced in code review and a lint-level check, not in the database.
 
 ### 3.7 Vehicle lookup — client-side smartcar.mn XYP gateway
 
@@ -127,7 +129,19 @@ Mongolia's government vehicle data is exposed through **smartcar.mn's public XYP
 **Lookup plan** (`vehicle_lookup_plans` table; exactly one row active at a time via a partial unique index on `is_active=true`):
 
 - `endpoint_url`, `endpoint_method`, `headers`, `body_template`, `slots`, `expected`, `ttl_seconds`
-- `expected.fields` lists the shape of a successful flat-JSON response (`markName`, `modelName`, `buildYear`, `cabinNumber` (VIN), `colorName`, `capacity`, `fuelType`, …)
+- `expected.fields` lists the shape of a successful flat-JSON response. The fields iAuto persists on the `vehicles` row:
+  - `markName` → `vehicles.make` (resolved to `vehicle_brand_id` via `CatalogService`)
+  - `modelName` → `vehicles.model` (resolved to `vehicle_model_id`)
+  - `buildYear` → `vehicles.build_year` (tolerant int/float/string coercion — smartcar.mn flip-flops)
+  - `cabinNumber` → `vehicles.vin` (encrypted + blind-indexed for dedup)
+  - `motorNumber` → `vehicles.engine_number`
+  - `colorName` → `vehicles.color`
+  - `capacity` → `vehicles.capacity_cc`
+  - `className` → `vehicles.class_code` (e.g. `"B"`)
+  - `fuelType` → `vehicles.fuel_type` (Mongolian, e.g. `"Бензин"`)
+  - `importDate` → `vehicles.import_month` (ISO datetime truncated to day-01 — year+month is the policy bucket, the day is paperwork noise)
+  - `wheelPosition` → `vehicles.steering_side` enum: `"Зүүн"` → `LHD`, `"Баруун"` → `RHD`
+- The last four are the session-5 business-coverage matching key (country/brand/model/year range + LHD/RHD). Unknown `wheelPosition` strings leave `steering_side` null rather than silently defaulting — the business coverage query excludes nulls from the LHD/RHD filter.
 - `expected.error_signatures` ships classifier rules for non-2xx bodies. Each entry has a `match` (`status` + `body_contains_any`), a `category`, an `alert_operator` flag, and `client_message_mn` / `client_message_en`
 - Rotating smartcar's reverse-engineered headers — which change under anti-bot pressure — is a DB update, not a mobile release
 
