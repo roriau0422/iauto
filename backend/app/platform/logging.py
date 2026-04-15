@@ -7,6 +7,7 @@ way out. Log site code doesn't need to opt in — it's global.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import re
 import sys
@@ -61,8 +62,27 @@ def _redact_processor(
     return {k: _redact_value(k, v) for k, v in event_dict.items()}
 
 
+def _force_stdout_utf8() -> None:
+    """Force sys.stdout/stderr to UTF-8 so Cyrillic log lines don't crash
+    on Windows consoles (default codepage is cp1252).
+
+    No-op on Linux/macOS where UTF-8 is already the default. Also no-op when
+    stdout has been replaced with something that doesn't expose `reconfigure`
+    (e.g. pytest's capture streams — tests still run fine).
+    """
+    for stream_name in ("stdout", "stderr"):
+        stream = getattr(sys, stream_name, None)
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        with contextlib.suppress(ValueError, OSError):
+            reconfigure(encoding="utf-8", errors="replace")
+
+
 def configure_logging(settings: Settings | None = None) -> None:
     s = settings or get_settings()
+
+    _force_stdout_utf8()
 
     logging.basicConfig(
         format="%(message)s",
