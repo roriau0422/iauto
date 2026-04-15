@@ -91,6 +91,9 @@ ignore = [
   "E501",   # line length — formatter handles it
   "B008",   # FastAPI Depends() in defaults is idiomatic
   "S101",   # asserts are fine in tests
+  "RUF001", # "ambiguous" unicode — iAuto is a Mongolian product, Cyrillic is expected
+  "RUF002", # same — docstrings and comments use Cyrillic freely
+  "RUF003", # same — comments use Cyrillic freely
 ]
 
 [tool.ruff.lint.per-file-ignores]

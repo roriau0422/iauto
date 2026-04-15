@@ -12,4 +12,21 @@ from app.identity.models import Device, RefreshToken, User
 # -- platform-owned tables (outbox, event archive) ---------------------------
 from app.platform.outbox import OutboxEvent
 
-__all__: list[str] = ["Device", "OutboxEvent", "RefreshToken", "User"]
+# -- vehicles ----------------------------------------------------------------
+from app.vehicles.models import (
+    Vehicle,
+    VehicleLookupPlan,
+    VehicleLookupReport,
+    VehicleOwnership,
+)
+
+__all__: list[str] = [
+    "Device",
+    "OutboxEvent",
+    "RefreshToken",
+    "User",
+    "Vehicle",
+    "VehicleLookupPlan",
+    "VehicleLookupReport",
+    "VehicleOwnership",
+]

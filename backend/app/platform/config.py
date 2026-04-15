@@ -89,6 +89,12 @@ class Settings(BaseSettings):
     messagepro_api_key: str = ""
     messagepro_sender: str = ""
 
+    # Operator phone — pager destination for backend-side outage alerts
+    # (e.g. smartcar.mn XYP gateway errors reported by mobile clients).
+    # SMS body budget is 180 characters; see vehicles.alerts.
+    operator_phone: str = ""
+    xyp_alert_window_seconds: int = 900  # 15 min coalescing window
+
     # Admin panel (section H — not mounted yet)
     admin_panel_enabled: bool = False
     admin_panel_secret: str = ""
