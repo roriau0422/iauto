@@ -1,6 +1,184 @@
 {
   "components": {
     "schemas": {
+      "BusinessCreateIn": {
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "contact_phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Phone"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "display_name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "display_name"
+        ],
+        "title": "BusinessCreateIn",
+        "type": "object"
+      },
+      "BusinessOut": {
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "contact_phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Phone"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "owner_id": {
+            "format": "uuid",
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "owner_id",
+          "display_name",
+          "description",
+          "address",
+          "contact_phone",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "BusinessOut",
+        "type": "object"
+      },
+      "BusinessUpdateIn": {
+        "description": "Partial update. Only provided fields are applied.\n\n`contact_phone` accepts an explicit empty string or None to clear the\noverride, since a business might want to fall back to the owner's phone\nlater. We represent that as a sentinel in the service layer.",
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "contact_phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Phone"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          }
+        },
+        "title": "BusinessUpdateIn",
+        "type": "object"
+      },
       "DeviceInfoIn": {
         "properties": {
           "label": {
@@ -301,6 +479,10 @@
           "phone": {
             "title": "Phone",
             "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/UserRole",
+            "default": "driver"
           }
         },
         "required": [
@@ -309,6 +491,140 @@
         ],
         "title": "OtpVerifyIn",
         "type": "object"
+      },
+      "PartSearchCancelOut": {
+        "properties": {
+          "ok": {
+            "const": true,
+            "default": true,
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "status": {
+            "$ref": "#/components/schemas/PartSearchStatus"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "PartSearchCancelOut",
+        "type": "object"
+      },
+      "PartSearchCreateIn": {
+        "properties": {
+          "description": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          },
+          "media_urls": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 4,
+            "title": "Media Urls",
+            "type": "array"
+          },
+          "vehicle_id": {
+            "format": "uuid",
+            "title": "Vehicle Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "vehicle_id",
+          "description"
+        ],
+        "title": "PartSearchCreateIn",
+        "type": "object"
+      },
+      "PartSearchListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PartSearchOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "PartSearchListOut",
+        "type": "object"
+      },
+      "PartSearchOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "driver_id": {
+            "format": "uuid",
+            "title": "Driver Id",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "media_urls": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Media Urls",
+            "type": "array"
+          },
+          "status": {
+            "$ref": "#/components/schemas/PartSearchStatus"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "vehicle_id": {
+            "format": "uuid",
+            "title": "Vehicle Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "driver_id",
+          "vehicle_id",
+          "description",
+          "media_urls",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "PartSearchOut",
+        "type": "object"
+      },
+      "PartSearchStatus": {
+        "description": "Lifecycle state of a driver-submitted part search request.\n\n- `open`      — created, visible to matching businesses, can receive quotes\n- `cancelled` — the driver cancelled before a quote was accepted\n- `expired`   — auto-closed after an inactivity window (session 5+)\n- `fulfilled` — a quote was accepted and the reservation turned into a sale",
+        "enum": [
+          "open",
+          "cancelled",
+          "expired",
+          "fulfilled"
+        ],
+        "title": "PartSearchStatus",
+        "type": "string"
       },
       "ReadinessResponse": {
         "properties": {
@@ -349,6 +665,15 @@
         ],
         "title": "RefreshIn",
         "type": "object"
+      },
+      "SteeringSide": {
+        "description": "Steering-wheel / drive-side layout of a physical car.\n\nMongolia has a mixed fleet: Japanese imports are overwhelmingly RHD\n(steering on the right), while Korean / German / US / Chinese imports\nare LHD. Business coverage tables (session 5) use this as a filter so\na shop stocking LHD Tiguan parts doesn't get searches for RHD Prii.\n\nMapping from the XYP `wheelPosition` field:\n    \"Зүүн\"  (Mongolian for \"left\")  → LHD\n    \"Баруун\" (Mongolian for \"right\") → RHD",
+        "enum": [
+          "LHD",
+          "RHD"
+        ],
+        "title": "SteeringSide",
+        "type": "string"
       },
       "TokenPairOut": {
         "properties": {
@@ -683,6 +1008,17 @@
             ],
             "title": "Capacity Cc"
           },
+          "class_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Class Code"
+          },
           "color": {
             "anyOf": [
               {
@@ -710,10 +1046,33 @@
             "title": "First Seen At",
             "type": "string"
           },
+          "fuel_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fuel Type"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
             "type": "string"
+          },
+          "import_month": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Import Month"
           },
           "last_seen_at": {
             "format": "date-time",
@@ -745,6 +1104,16 @@
           "plate": {
             "title": "Plate",
             "type": "string"
+          },
+          "steering_side": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SteeringSide"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "vehicle_brand_id": {
             "anyOf": [
@@ -797,6 +1166,10 @@
           "color",
           "engine_number",
           "capacity_cc",
+          "class_code",
+          "fuel_type",
+          "import_month",
+          "steering_side",
           "verification_source",
           "first_seen_at",
           "last_seen_at"
@@ -897,6 +1270,17 @@
             ],
             "title": "Capacity"
           },
+          "className": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Classname"
+          },
           "colorName": {
             "anyOf": [
               {
@@ -907,6 +1291,28 @@
               }
             ],
             "title": "Colorname"
+          },
+          "fuelType": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fueltype"
+          },
+          "importDate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Importdate"
           },
           "markName": {
             "anyOf": [
@@ -940,6 +1346,17 @@
               }
             ],
             "title": "Motornumber"
+          },
+          "wheelPosition": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wheelposition"
           }
         },
         "title": "XypPayloadIn",
@@ -1117,6 +1534,171 @@
         ]
       }
     },
+    "/v1/businesses": {
+      "post": {
+        "operationId": "create_business_v1_businesses_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BusinessCreateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BusinessOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create a business profile for the authenticated user",
+        "tags": [
+          "businesses"
+        ]
+      }
+    },
+    "/v1/businesses/me": {
+      "get": {
+        "operationId": "get_my_business_v1_businesses_me_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BusinessOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Return the authenticated owner's business profile",
+        "tags": [
+          "businesses"
+        ]
+      },
+      "patch": {
+        "operationId": "update_my_business_v1_businesses_me_patch",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BusinessUpdateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BusinessOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Partially update the authenticated owner's business profile",
+        "tags": [
+          "businesses"
+        ]
+      }
+    },
     "/v1/catalog/brands": {
       "get": {
         "operationId": "list_brands_v1_catalog_brands_get",
@@ -1260,6 +1842,272 @@
         "summary": "Liveness probe",
         "tags": [
           "health"
+        ]
+      }
+    },
+    "/v1/marketplace/searches": {
+      "post": {
+        "operationId": "create_search_v1_marketplace_searches_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PartSearchCreateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartSearchOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit a part search request against one of the driver's vehicles",
+        "tags": [
+          "marketplace"
+        ]
+      }
+    },
+    "/v1/marketplace/searches/mine": {
+      "get": {
+        "operationId": "list_my_searches_v1_marketplace_searches_mine_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "default": "all",
+              "enum": [
+                "open",
+                "cancelled",
+                "expired",
+                "fulfilled",
+                "all"
+              ],
+              "title": "Status",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartSearchListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List the authenticated driver's part search requests",
+        "tags": [
+          "marketplace"
+        ]
+      }
+    },
+    "/v1/marketplace/searches/{search_id}": {
+      "get": {
+        "operationId": "get_search_v1_marketplace_searches__search_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "search_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Search Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartSearchOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Return the authenticated driver's part search by id",
+        "tags": [
+          "marketplace"
+        ]
+      }
+    },
+    "/v1/marketplace/searches/{search_id}/cancel": {
+      "post": {
+        "operationId": "cancel_search_v1_marketplace_searches__search_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "search_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Search Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartSearchCancelOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel an open part search",
+        "tags": [
+          "marketplace"
         ]
       }
     },
