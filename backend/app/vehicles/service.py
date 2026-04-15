@@ -281,9 +281,7 @@ class VehiclesService:
                 else None
             ),
             "fuel_type": (
-                xyp.fuelType.strip()
-                if xyp.fuelType is not None and xyp.fuelType.strip()
-                else None
+                xyp.fuelType.strip() if xyp.fuelType is not None and xyp.fuelType.strip() else None
             ),
             "import_month": parse_import_month(xyp.importDate),
             "steering_side": parse_wheel_position(xyp.wheelPosition),

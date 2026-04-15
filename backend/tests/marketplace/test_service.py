@@ -62,9 +62,7 @@ async def test_submit_search_happy_path_writes_outbox_event(
     db_session: AsyncSession,
 ) -> None:
     driver = await _make_driver(db_session, "+97688110301")
-    reg = await vehicles_service.register_from_xyp(
-        user_id=driver.id, plate=PLATE_A, xyp=XYP_PRIUS
-    )
+    reg = await vehicles_service.register_from_xyp(user_id=driver.id, plate=PLATE_A, xyp=XYP_PRIUS)
     result = await marketplace.submit_search(
         driver_id=driver.id,
         payload=PartSearchCreateIn(
@@ -78,9 +76,7 @@ async def test_submit_search_happy_path_writes_outbox_event(
     assert result.status == PartSearchStatus.open
 
     events = (await db_session.execute(select(OutboxEvent))).scalars().all()
-    submitted = [
-        e for e in events if e.event_type == "marketplace.part_search_submitted"
-    ]
+    submitted = [e for e in events if e.event_type == "marketplace.part_search_submitted"]
     assert len(submitted) == 1
     assert submitted[0].payload["driver_id"] == str(driver.id)
     assert submitted[0].payload["vehicle_brand_id"] is not None  # catalog resolved
@@ -93,9 +89,7 @@ async def test_submit_search_rejects_vehicle_not_owned(
 ) -> None:
     owner = await _make_driver(db_session, "+97688110302")
     stranger = await _make_driver(db_session, "+97688110303")
-    reg = await vehicles_service.register_from_xyp(
-        user_id=owner.id, plate=PLATE_A, xyp=XYP_PRIUS
-    )
+    reg = await vehicles_service.register_from_xyp(user_id=owner.id, plate=PLATE_A, xyp=XYP_PRIUS)
     with pytest.raises(NotFoundError):
         await marketplace.submit_search(
             driver_id=stranger.id,
@@ -126,20 +120,14 @@ async def test_list_for_driver_filters_by_status(
     db_session: AsyncSession,
 ) -> None:
     driver = await _make_driver(db_session, "+97688110305")
-    reg = await vehicles_service.register_from_xyp(
-        user_id=driver.id, plate=PLATE_A, xyp=XYP_PRIUS
-    )
+    reg = await vehicles_service.register_from_xyp(user_id=driver.id, plate=PLATE_A, xyp=XYP_PRIUS)
     first = await marketplace.submit_search(
         driver_id=driver.id,
-        payload=PartSearchCreateIn(
-            vehicle_id=reg.vehicle.id, description="first"
-        ),
+        payload=PartSearchCreateIn(vehicle_id=reg.vehicle.id, description="first"),
     )
     await marketplace.submit_search(
         driver_id=driver.id,
-        payload=PartSearchCreateIn(
-            vehicle_id=reg.vehicle.id, description="second"
-        ),
+        payload=PartSearchCreateIn(vehicle_id=reg.vehicle.id, description="second"),
     )
     await marketplace.cancel(driver_id=driver.id, search_id=first.id)
 
@@ -172,14 +160,10 @@ async def test_cancel_transitions_status_and_emits_event(
     db_session: AsyncSession,
 ) -> None:
     driver = await _make_driver(db_session, "+97688110306")
-    reg = await vehicles_service.register_from_xyp(
-        user_id=driver.id, plate=PLATE_A, xyp=XYP_PRIUS
-    )
+    reg = await vehicles_service.register_from_xyp(user_id=driver.id, plate=PLATE_A, xyp=XYP_PRIUS)
     request = await marketplace.submit_search(
         driver_id=driver.id,
-        payload=PartSearchCreateIn(
-            vehicle_id=reg.vehicle.id, description="cancel me"
-        ),
+        payload=PartSearchCreateIn(vehicle_id=reg.vehicle.id, description="cancel me"),
     )
     await marketplace.cancel(driver_id=driver.id, search_id=request.id)
 
@@ -188,9 +172,7 @@ async def test_cancel_transitions_status_and_emits_event(
     assert refreshed.status == PartSearchStatus.cancelled
 
     events = (await db_session.execute(select(OutboxEvent))).scalars().all()
-    cancelled = [
-        e for e in events if e.event_type == "marketplace.part_search_cancelled"
-    ]
+    cancelled = [e for e in events if e.event_type == "marketplace.part_search_cancelled"]
     assert len(cancelled) == 1
 
 
@@ -201,14 +183,10 @@ async def test_cancel_rejects_stranger(
 ) -> None:
     owner = await _make_driver(db_session, "+97688110307")
     stranger = await _make_driver(db_session, "+97688110308")
-    reg = await vehicles_service.register_from_xyp(
-        user_id=owner.id, plate=PLATE_A, xyp=XYP_PRIUS
-    )
+    reg = await vehicles_service.register_from_xyp(user_id=owner.id, plate=PLATE_A, xyp=XYP_PRIUS)
     request = await marketplace.submit_search(
         driver_id=owner.id,
-        payload=PartSearchCreateIn(
-            vehicle_id=reg.vehicle.id, description="not yours"
-        ),
+        payload=PartSearchCreateIn(vehicle_id=reg.vehicle.id, description="not yours"),
     )
     with pytest.raises(NotFoundError):
         await marketplace.cancel(driver_id=stranger.id, search_id=request.id)
@@ -220,14 +198,10 @@ async def test_cancel_twice_is_a_conflict(
     db_session: AsyncSession,
 ) -> None:
     driver = await _make_driver(db_session, "+97688110309")
-    reg = await vehicles_service.register_from_xyp(
-        user_id=driver.id, plate=PLATE_A, xyp=XYP_PRIUS
-    )
+    reg = await vehicles_service.register_from_xyp(user_id=driver.id, plate=PLATE_A, xyp=XYP_PRIUS)
     request = await marketplace.submit_search(
         driver_id=driver.id,
-        payload=PartSearchCreateIn(
-            vehicle_id=reg.vehicle.id, description="double-cancel"
-        ),
+        payload=PartSearchCreateIn(vehicle_id=reg.vehicle.id, description="double-cancel"),
     )
     await marketplace.cancel(driver_id=driver.id, search_id=request.id)
     with pytest.raises(ConflictError):

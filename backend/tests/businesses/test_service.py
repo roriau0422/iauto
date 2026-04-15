@@ -28,9 +28,7 @@ async def _make_user(
     return user
 
 
-async def test_create_happy_path(
-    service: BusinessesService, db_session: AsyncSession
-) -> None:
+async def test_create_happy_path(service: BusinessesService, db_session: AsyncSession) -> None:
     owner = await _make_user(db_session, phone="+97688110100")
     business = await service.create(
         owner=owner,
@@ -64,9 +62,7 @@ async def test_create_rejects_duplicate_profile(
     owner = await _make_user(db_session, phone="+97688110102")
     await service.create(owner=owner, payload=BusinessCreateIn(display_name="First"))
     with pytest.raises(ConflictError):
-        await service.create(
-            owner=owner, payload=BusinessCreateIn(display_name="Second")
-        )
+        await service.create(owner=owner, payload=BusinessCreateIn(display_name="Second"))
 
 
 async def test_get_for_owner_404_when_missing(

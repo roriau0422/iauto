@@ -52,9 +52,7 @@ async def list_my_searches(
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> PartSearchListOut:
-    status_enum = (
-        None if status_filter == "all" else PartSearchStatus(status_filter)
-    )
+    status_enum = None if status_filter == "all" else PartSearchStatus(status_filter)
     result = await service.list_for_driver(
         driver_id=user.id,
         status=status_enum,

@@ -97,14 +97,10 @@ class MarketplaceService:
         )
         return ListResult(items=items, total=total)
 
-    async def cancel(
-        self, *, driver_id: uuid.UUID, search_id: uuid.UUID
-    ) -> PartSearchRequest:
+    async def cancel(self, *, driver_id: uuid.UUID, search_id: uuid.UUID) -> PartSearchRequest:
         request = await self.get_for_driver(driver_id=driver_id, search_id=search_id)
         if request.status != PartSearchStatus.open:
-            raise ConflictError(
-                f"Cannot cancel a search in status '{request.status.value}'"
-            )
+            raise ConflictError(f"Cannot cancel a search in status '{request.status.value}'")
         request.status = PartSearchStatus.cancelled
         await self.session.flush()
         write_outbox_event(

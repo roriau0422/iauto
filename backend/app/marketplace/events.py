@@ -20,9 +20,7 @@ class PartSearchSubmitted(DomainEvent):
     vehicles at read time.
     """
 
-    event_type: Literal["marketplace.part_search_submitted"] = (
-        "marketplace.part_search_submitted"
-    )
+    event_type: Literal["marketplace.part_search_submitted"] = "marketplace.part_search_submitted"
     aggregate_type: Literal["part_search_request"] = "part_search_request"
     driver_id: uuid.UUID
     vehicle_id: uuid.UUID
@@ -33,8 +31,6 @@ class PartSearchSubmitted(DomainEvent):
 
 
 class PartSearchCancelled(DomainEvent):
-    event_type: Literal["marketplace.part_search_cancelled"] = (
-        "marketplace.part_search_cancelled"
-    )
+    event_type: Literal["marketplace.part_search_cancelled"] = "marketplace.part_search_cancelled"
     aggregate_type: Literal["part_search_request"] = "part_search_request"
     driver_id: uuid.UUID

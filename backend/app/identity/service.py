@@ -236,9 +236,7 @@ class IdentityService:
         code = secrets.randbelow(upper)
         return str(code).zfill(length)
 
-    async def _get_or_create_user(
-        self, phone: str, requested_role: UserRole
-    ) -> tuple[User, bool]:
+    async def _get_or_create_user(self, phone: str, requested_role: UserRole) -> tuple[User, bool]:
         existing = await self.users.get_by_phone(phone)
         if existing is not None:
             # Existing users keep the role they registered with. We ignore

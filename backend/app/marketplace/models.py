@@ -57,9 +57,7 @@ class PartSearchRequest(UuidPrimaryKey, Timestamped, Base):
         index=True,
     )
     description: Mapped[str] = mapped_column(Text, nullable=False)
-    media_urls: Mapped[list[Any]] = mapped_column(
-        JSONB, nullable=False, server_default="[]"
-    )
+    media_urls: Mapped[list[Any]] = mapped_column(JSONB, nullable=False, server_default="[]")
     status: Mapped[PartSearchStatus] = mapped_column(
         SAEnum(PartSearchStatus, name="part_search_status", native_enum=True),
         nullable=False,
