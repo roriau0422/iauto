@@ -26,6 +26,8 @@ from app.vehicles.models import (
     Vehicle,
     VehicleLookupPlan,
     VerificationSource,
+    parse_import_month,
+    parse_wheel_position,
 )
 from app.vehicles.repository import (
     LookupPlanRepository,
@@ -273,6 +275,18 @@ class VehiclesService:
             ),
             "color": xyp.colorName,
             "capacity_cc": cls._coerce_int(xyp.capacity),
+            "class_code": (
+                xyp.className.strip()
+                if xyp.className is not None and xyp.className.strip()
+                else None
+            ),
+            "fuel_type": (
+                xyp.fuelType.strip()
+                if xyp.fuelType is not None and xyp.fuelType.strip()
+                else None
+            ),
+            "import_month": parse_import_month(xyp.importDate),
+            "steering_side": parse_wheel_position(xyp.wheelPosition),
         }
 
     async def _get_or_create_vehicle(
@@ -300,6 +314,10 @@ class VehiclesService:
             color=parsed["color"],
             engine_number=parsed["engine_number"],
             capacity_cc=parsed["capacity_cc"],
+            class_code=parsed["class_code"],
+            fuel_type=parsed["fuel_type"],
+            import_month=parsed["import_month"],
+            steering_side=parsed["steering_side"],
             raw_xyp=raw_xyp,
             verification_source=VerificationSource.xyp_public,
         )

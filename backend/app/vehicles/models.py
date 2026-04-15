@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum
 from typing import Any
 
 from sqlalchemy import (
     Boolean,
+    Date,
     DateTime,
     Enum as SAEnum,
     ForeignKey,
@@ -29,8 +30,60 @@ class VerificationSource(StrEnum):
     manual = "manual"  # User-entered fallback when XYP unreachable
 
 
+class SteeringSide(StrEnum):
+    """Steering-wheel / drive-side layout of a physical car.
+
+    Mongolia has a mixed fleet: Japanese imports are overwhelmingly RHD
+    (steering on the right), while Korean / German / US / Chinese imports
+    are LHD. Business coverage tables (session 5) use this as a filter so
+    a shop stocking LHD Tiguan parts doesn't get searches for RHD Prii.
+
+    Mapping from the XYP `wheelPosition` field:
+        "Зүүн"  (Mongolian for "left")  → LHD
+        "Баруун" (Mongolian for "right") → RHD
+    """
+
+    LHD = "LHD"
+    RHD = "RHD"
+
+
 def normalize_vin(raw: str) -> str:
     return raw.strip().upper()
+
+
+def parse_wheel_position(raw: str | None) -> SteeringSide | None:
+    """Map XYP `wheelPosition` Mongolian text to the SteeringSide enum.
+
+    Returns None for unknown / missing input so the column stays nullable
+    when smartcar.mn omits the field or introduces a new variant.
+    """
+    if raw is None:
+        return None
+    normalized = raw.strip()
+    if not normalized:
+        return None
+    if normalized in ("Зүүн", "зүүн"):
+        return SteeringSide.LHD
+    if normalized in ("Баруун", "баруун"):
+        return SteeringSide.RHD
+    return None
+
+
+def parse_import_month(raw: str | None) -> date | None:
+    """Truncate an XYP `importDate` ISO timestamp to the 1st of its month.
+
+    The spec asks for year+month only — the day is noise for the flywheel
+    (import registration is a policy/tax bucket, not a delivery milestone).
+    Storing as `date` with day=01 keeps it sortable and range-queryable.
+    Returns None for missing / unparseable input.
+    """
+    if raw is None or not raw.strip():
+        return None
+    try:
+        dt = datetime.fromisoformat(raw)
+    except ValueError:
+        return None
+    return dt.date().replace(day=1)
 
 
 class Vehicle(UuidPrimaryKey, Timestamped, Base):
@@ -71,6 +124,18 @@ class Vehicle(UuidPrimaryKey, Timestamped, Base):
     color: Mapped[str | None] = mapped_column(Text, nullable=True)
     engine_number: Mapped[str | None] = mapped_column(Text, nullable=True)
     capacity_cc: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # XYP `className` — Mongolian vehicle license class ("B", "C", ...).
+    class_code: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # XYP `fuelType` — Mongolian fuel name ("Бензин", "Дизель", ...).
+    fuel_type: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # XYP `importDate` truncated to year+month (day always 01).
+    import_month: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # XYP `wheelPosition` → LHD/RHD. Part of the session-5 matching key.
+    steering_side: Mapped[SteeringSide | None] = mapped_column(
+        SAEnum(SteeringSide, name="vehicle_steering_side", native_enum=True),
+        nullable=True,
+        index=True,
+    )
     raw_xyp: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     verification_source: Mapped[VerificationSource] = mapped_column(
         SAEnum(VerificationSource, name="vehicle_verification_source", native_enum=True),

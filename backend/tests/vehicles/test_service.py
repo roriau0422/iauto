@@ -16,9 +16,12 @@ from app.platform.errors import ForbiddenError, NotFoundError
 from app.platform.outbox import OutboxEvent
 from app.vehicles.alerts import SMS_BODY_MAX
 from app.vehicles.models import (
+    SteeringSide,
     Vehicle,
     VehicleOwnership,
     VerificationSource,
+    parse_import_month,
+    parse_wheel_position,
 )
 from app.vehicles.schemas import XypPayloadIn
 from app.vehicles.service import VehiclesService
@@ -54,6 +57,22 @@ XYP_NO_VIN = XypPayloadIn(
     motorNumber=None,
     colorName="Green",
     capacity=2700,
+)
+
+# Full-fat XYP sample that matches the real wire shape handed over by the
+# user: Japanese import, LHD, build 2025, imported July 2025, class B,
+# running on gasoline.
+XYP_FULL = XypPayloadIn(
+    markName="Toyota",
+    modelName="Land Cruiser",
+    buildYear=2025,
+    cabinNumber="JTMAUCBJ704091759",
+    colorName="Хар",
+    capacity=3956.0,
+    className="B",
+    fuelType="Бензин",
+    importDate="2025-07-07T00:00:00",
+    wheelPosition="Зүүн",
 )
 
 
@@ -145,6 +164,47 @@ async def test_register_twice_same_user_is_idempotent(
 
     ownerships = (await db_session.execute(select(VehicleOwnership))).scalars().all()
     assert len(ownerships) == 1
+
+
+async def test_register_populates_xyp_attribute_columns(
+    service: VehiclesService, db_session: AsyncSession
+) -> None:
+    user = await _make_user(db_session)
+    result = await service.register_from_xyp(user_id=user.id, plate=PLATE_A, xyp=XYP_FULL)
+    v = result.vehicle
+    assert v.class_code == "B"
+    assert v.fuel_type == "Бензин"
+    assert v.import_month is not None
+    assert v.import_month.year == 2025
+    assert v.import_month.month == 7
+    assert v.import_month.day == 1
+    assert v.steering_side == SteeringSide.LHD
+    # Raw XYP snapshot is preserved verbatim for audit.
+    assert v.raw_xyp is not None
+    assert v.raw_xyp.get("wheelPosition") == "Зүүн"
+    assert v.raw_xyp.get("importDate") == "2025-07-07T00:00:00"
+
+
+def test_parse_wheel_position_known_values() -> None:
+    assert parse_wheel_position("Зүүн") == SteeringSide.LHD
+    assert parse_wheel_position("Баруун") == SteeringSide.RHD
+    assert parse_wheel_position(" Зүүн ") == SteeringSide.LHD  # whitespace tolerated
+    assert parse_wheel_position(None) is None
+    assert parse_wheel_position("") is None
+    assert parse_wheel_position("unknown") is None
+
+
+def test_parse_import_month_truncates_to_day_one() -> None:
+    m = parse_import_month("2025-07-07T00:00:00")
+    assert m is not None
+    assert (m.year, m.month, m.day) == (2025, 7, 1)
+    # Plain ISO date (no time) also parses.
+    m2 = parse_import_month("2024-12-31")
+    assert m2 is not None
+    assert (m2.year, m2.month, m2.day) == (2024, 12, 1)
+    assert parse_import_month(None) is None
+    assert parse_import_month("") is None
+    assert parse_import_month("garbage") is None
 
 
 async def test_null_vin_always_creates_new_vehicle(

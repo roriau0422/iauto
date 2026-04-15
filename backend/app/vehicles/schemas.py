@@ -5,12 +5,12 @@ from __future__ import annotations
 import re
 import unicodedata
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.vehicles.models import VerificationSource
+from app.vehicles.models import SteeringSide, VerificationSource
 
 # ---------------------------------------------------------------------------
 # Plate normalization
@@ -117,6 +117,10 @@ class XypPayloadIn(BaseModel):
     motorNumber: str | None = None  # noqa: N815
     colorName: str | None = None  # noqa: N815
     capacity: int | float | str | None = None
+    className: str | None = None  # noqa: N815 — license class ("B", "C", ...)
+    fuelType: str | None = None  # noqa: N815 — Mongolian fuel name
+    importDate: str | None = None  # noqa: N815 — ISO datetime, truncated to month
+    wheelPosition: str | None = None  # noqa: N815 — "Зүүн" / "Баруун"
 
     model_config = ConfigDict(extra="allow")
 
@@ -145,6 +149,10 @@ class VehicleOut(BaseModel):
     color: str | None
     engine_number: str | None
     capacity_cc: int | None
+    class_code: str | None
+    fuel_type: str | None
+    import_month: date | None
+    steering_side: SteeringSide | None
     verification_source: VerificationSource
     first_seen_at: datetime
     last_seen_at: datetime

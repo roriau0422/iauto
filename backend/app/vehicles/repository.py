@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 
 from sqlalchemy import and_, delete, select, update
@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.platform.crypto import get_search_index
 from app.vehicles.models import (
+    SteeringSide,
     Vehicle,
     VehicleLookupPlan,
     VehicleLookupReport,
@@ -46,6 +47,10 @@ class VehicleRepository:
         color: str | None,
         engine_number: str | None,
         capacity_cc: int | None,
+        class_code: str | None,
+        fuel_type: str | None,
+        import_month: date | None,
+        steering_side: SteeringSide | None,
         raw_xyp: dict[str, Any] | None,
         verification_source: VerificationSource,
     ) -> Vehicle:
@@ -60,6 +65,10 @@ class VehicleRepository:
             color=color,
             engine_number=engine_number,
             capacity_cc=capacity_cc,
+            class_code=class_code,
+            fuel_type=fuel_type,
+            import_month=import_month,
+            steering_side=steering_side,
             raw_xyp=raw_xyp,
             verification_source=verification_source,
         )
