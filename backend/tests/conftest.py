@@ -14,6 +14,7 @@ from collections.abc import AsyncIterator
 
 import pytest
 import pytest_asyncio
+from redis.asyncio import Redis, from_url
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -21,6 +22,7 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
+from app.identity.providers.sms import InMemorySmsProvider
 from app.platform.config import get_settings
 from app.platform.outbox import clear_handlers
 
@@ -73,3 +75,44 @@ def _clear_handlers():
     clear_handlers()
     yield
     clear_handlers()
+
+
+def _test_redis_url(settings) -> str:
+    """Rewrite the configured redis URL to target logical DB #15 for tests.
+
+    Keeping tests on a dedicated DB means `flushdb` at the start of each test
+    can't wipe a developer's running app state.
+    """
+    url = settings.redis_url_str
+    if url.endswith("/0"):
+        return url[:-2] + "/15"
+    if "/" in url.split("://", 1)[1]:
+        return url.rsplit("/", 1)[0] + "/15"
+    return url.rstrip("/") + "/15"
+
+
+@pytest_asyncio.fixture(scope="session", loop_scope="session")
+async def redis_client(settings) -> AsyncIterator[Redis]:
+    client = from_url(  # type: ignore[no-untyped-call]
+        _test_redis_url(settings),
+        decode_responses=True,
+        encoding="utf-8",
+    )
+    await client.ping()
+    try:
+        yield client
+    finally:
+        await client.aclose()
+
+
+@pytest_asyncio.fixture(loop_scope="session")
+async def redis(redis_client: Redis) -> AsyncIterator[Redis]:
+    """Per-test Redis handle — flushes the test DB before yielding."""
+    await redis_client.flushdb()
+    yield redis_client
+    await redis_client.flushdb()
+
+
+@pytest.fixture
+def sms() -> InMemorySmsProvider:
+    return InMemorySmsProvider()
