@@ -21,6 +21,4 @@ def get_vehicles_service(
     sms: Annotated[SmsProvider, Depends(get_sms_provider)],
     settings: Annotated[Settings, Depends(get_settings_dep)],
 ) -> VehiclesService:
-    return VehiclesService(
-        session=session, redis=redis, sms=sms, settings=settings
-    )
+    return VehiclesService(session=session, redis=redis, sms=sms, settings=settings)

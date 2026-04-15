@@ -23,9 +23,7 @@ PHONE = "+97688110921"
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def client(
-    db_session: AsyncSession, redis: Redis
-) -> AsyncIterator[AsyncClient]:
+async def client(db_session: AsyncSession, redis: Redis) -> AsyncIterator[AsyncClient]:
     app = create_app()
 
     async def _override_session() -> AsyncIterator[AsyncSession]:
@@ -68,9 +66,7 @@ async def test_otp_flow_end_to_end(client: AsyncClient) -> None:
     assert pair["user"]["phone"] == PHONE
 
     # 3. /v1/me with bearer
-    resp = await client.get(
-        "/v1/me", headers={"Authorization": f"Bearer {access}"}
-    )
+    resp = await client.get("/v1/me", headers={"Authorization": f"Bearer {access}"})
     assert resp.status_code == 200, resp.text
     assert resp.json()["phone"] == PHONE
 
@@ -79,9 +75,7 @@ async def test_otp_flow_end_to_end(client: AsyncClient) -> None:
     assert resp.status_code == 401
 
     # 5. refresh rotation — same rotation rules as the service tests
-    resp = await client.post(
-        "/v1/auth/refresh", json={"refresh_token": refresh}
-    )
+    resp = await client.post("/v1/auth/refresh", json={"refresh_token": refresh})
     assert resp.status_code == 200, resp.text
     new_pair = resp.json()
     assert new_pair["refresh_token"] != refresh
@@ -102,9 +96,7 @@ async def test_otp_flow_end_to_end(client: AsyncClient) -> None:
 
 
 async def test_request_otp_rejects_bad_phone(client: AsyncClient) -> None:
-    resp = await client.post(
-        "/v1/auth/otp/request", json={"phone": "not a phone"}
-    )
+    resp = await client.post("/v1/auth/otp/request", json={"phone": "not a phone"})
     assert resp.status_code == 422
 
 

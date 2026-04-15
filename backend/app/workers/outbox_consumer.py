@@ -18,6 +18,7 @@ from datetime import UTC, datetime
 from typing import Any, ClassVar
 
 from arq.connections import RedisSettings
+from arq.cron import CronJob, cron
 from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -139,6 +140,22 @@ async def shutdown(ctx: dict[str, Any]) -> None:
     logger.info("outbox_worker_stopped")
 
 
+def _poll_seconds() -> set[int]:
+    """Outbox poll cadence — fresh set every call so arq.cron() owns its own.
+
+    `tick` fires every 5 seconds (12× per minute). Arq cron matches exact
+    second values, so we hand it the full set rather than trying to
+    express "every 5s" as a delta. Keep this cadence in sync with any SLA
+    on event→reader latency. Returned as a new set per call so callers
+    can't accidentally mutate a module-level singleton arq is using.
+    """
+    return set(range(0, 60, 5))
+
+
+POLL_SECONDS: frozenset[int] = frozenset(_poll_seconds())
+"""Immutable cadence constant, exposed for test assertions."""
+
+
 class WorkerSettings:
     """Arq worker entry point.
 
@@ -149,7 +166,20 @@ class WorkerSettings:
     functions: ClassVar[list[Any]] = [tick]
     on_startup = staticmethod(startup)
     on_shutdown = staticmethod(shutdown)
-    cron_jobs: ClassVar[list[Any]] = []  # replaced with arq.cron() specs later
+    cron_jobs: ClassVar[list[CronJob]] = [
+        cron(
+            tick,
+            name="outbox_tick",
+            second=_poll_seconds(),
+            run_at_startup=True,
+            # Per-fire timeout. If a single tick takes longer than this,
+            # Arq cancels it and retries on the next schedule slot.
+            timeout=30,
+            # keep_result=0 → don't bloat Redis with per-tick job results,
+            # we don't consult them from anywhere.
+            keep_result=0,
+        )
+    ]
 
     @property
     def redis_settings(self) -> RedisSettings:

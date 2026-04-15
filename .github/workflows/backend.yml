@@ -1,0 +1,109 @@
+name: backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "shared/openapi/**"
+      - ".github/workflows/backend.yml"
+  pull_request:
+    paths:
+      - "backend/**"
+      - "shared/openapi/**"
+      - ".github/workflows/backend.yml"
+
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: ruff · mypy · pytest · openapi
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: iauto
+          POSTGRES_PASSWORD: iauto_ci
+          POSTGRES_DB: iauto_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    # These are CI-ONLY dummy secrets. They protect ephemeral data on a
+    # throwaway Postgres that lives for the duration of one job. Do not
+    # copy them into any real environment.
+    env:
+      APP_ENV: dev
+      APP_LOG_LEVEL: INFO
+      APP_LOG_FORMAT: console
+      DATABASE_URL: postgresql+asyncpg://iauto:iauto_ci@localhost:5432/iauto_test
+      DATABASE_TEST_URL: postgresql+asyncpg://iauto:iauto_ci@localhost:5432/iauto_test
+      REDIS_URL: redis://localhost:6379/0
+      JWT_SECRET: ovN1qCLVFMatZ9sbn2Ll4GlajoQD19QQUslPoN9_PwoIJ7qeGSR7Mu2Wq1JyVXe_
+      APP_DATA_KEY: 5mVSBwuWtKZtpxxddFzZFgkLsI_Bb0dNJTxmExqKjTM=
+      APP_SEARCH_KEY: a25d49d186d121d0b687972dc42719b17171fbe96d2d3558b8cca9fc6c699004
+      OPERATOR_PHONE: "+97600000000"
+      SMS_PROVIDER: console
+      HTTP_CORS_ORIGINS: http://localhost
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: latest
+
+      - name: Pin Python 3.13
+        run: uv python install 3.13
+
+      - name: Create venv and install backend
+        working-directory: backend
+        run: |
+          uv venv venv --python 3.13
+          source venv/bin/activate
+          uv pip install -e ".[dev]"
+
+      - name: Ruff lint
+        working-directory: backend
+        run: venv/bin/python -m ruff check app tests
+
+      - name: Ruff format check
+        working-directory: backend
+        run: venv/bin/python -m ruff format --check app tests
+
+      - name: Mypy strict
+        working-directory: backend
+        run: venv/bin/python -m mypy app
+
+      - name: Alembic upgrade head
+        working-directory: backend
+        run: venv/bin/python -m alembic upgrade head
+
+      - name: Pytest
+        working-directory: backend
+        run: venv/bin/python -m pytest
+
+      - name: OpenAPI snapshot drift
+        working-directory: backend
+        run: venv/bin/python scripts/gen_openapi.py --check

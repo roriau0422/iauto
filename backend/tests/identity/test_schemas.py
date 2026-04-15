@@ -25,11 +25,11 @@ def test_normalize_phone_accepts(raw: str, expected: str) -> None:
 @pytest.mark.parametrize(
     "raw",
     [
-        "881109",              # too short
-        "123456789012345",     # too long
-        "abcdefgh",            # not digits
-        "+1 555 123 4567",     # not MN
-        "",                    # empty
+        "881109",  # too short
+        "123456789012345",  # too long
+        "abcdefgh",  # not digits
+        "+1 555 123 4567",  # not MN
+        "",  # empty
     ],
 )
 def test_normalize_phone_rejects(raw: str) -> None:

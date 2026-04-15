@@ -28,9 +28,7 @@ XYP_BODY = {
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def client(
-    db_session: AsyncSession, redis: Redis
-) -> AsyncIterator[AsyncClient]:
+async def client(db_session: AsyncSession, redis: Redis) -> AsyncIterator[AsyncClient]:
     app = create_app()
 
     async def _override_session() -> AsyncIterator[AsyncSession]:
@@ -48,9 +46,7 @@ async def client(
 
 
 async def _login(client: AsyncClient) -> str:
-    r = await client.post(
-        "/v1/auth/otp/request", json={"phone": PHONE}
-    )
+    r = await client.post("/v1/auth/otp/request", json={"phone": PHONE})
     assert r.status_code == 202, r.text
     code = r.json()["debug_code"]
     r = await client.post(
@@ -121,9 +117,7 @@ async def test_register_rejects_invalid_plate(client: AsyncClient) -> None:
 
 
 async def test_register_requires_auth(client: AsyncClient) -> None:
-    r = await client.post(
-        "/v1/vehicles", json={"plate": PLATE, "xyp": XYP_BODY}
-    )
+    r = await client.post("/v1/vehicles", json={"plate": PLATE, "xyp": XYP_BODY})
     assert r.status_code == 401
 
 

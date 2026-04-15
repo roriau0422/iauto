@@ -43,9 +43,7 @@ async def test_write_outbox_event_lands_in_table(db_session: AsyncSession) -> No
     await db_session.flush()
 
     found = (
-        await db_session.execute(
-            select(OutboxEvent).where(OutboxEvent.id == row.id)
-        )
+        await db_session.execute(select(OutboxEvent).where(OutboxEvent.id == row.id))
     ).scalar_one()
 
     assert found.event_type == "identity.user_registered"
@@ -74,9 +72,7 @@ async def test_outbox_rollback_leaves_no_row(engine) -> None:
         await session.flush()
         # Confirm it's staged inside the txn before we roll back.
         staged = (
-            await session.execute(
-                select(OutboxEvent).where(OutboxEvent.aggregate_id == user_id)
-            )
+            await session.execute(select(OutboxEvent).where(OutboxEvent.aggregate_id == user_id))
         ).scalar_one_or_none()
         assert staged is not None
         await session.rollback()
@@ -84,9 +80,7 @@ async def test_outbox_rollback_leaves_no_row(engine) -> None:
     # Brand new session — verify the row is gone.
     async with factory() as verify:
         missing = (
-            await verify.execute(
-                select(OutboxEvent).where(OutboxEvent.aggregate_id == user_id)
-            )
+            await verify.execute(select(OutboxEvent).where(OutboxEvent.aggregate_id == user_id))
         ).scalar_one_or_none()
         assert missing is None
 
@@ -115,25 +109,17 @@ async def test_worker_dispatches_and_archives(engine) -> None:
     try:
         dispatched = await run_once(factory)
         assert dispatched >= 1
-        assert any(
-            e.aggregate_id == user_id
-            for e in received
-        )
+        assert any(e.aggregate_id == user_id for e in received)
 
         async with factory() as check:
             outbox_row = (
-                await check.execute(
-                    select(OutboxEvent).where(OutboxEvent.aggregate_id == user_id)
-                )
+                await check.execute(select(OutboxEvent).where(OutboxEvent.aggregate_id == user_id))
             ).scalar_one()
             assert outbox_row.dispatched_at is not None
 
             archive_count = (
                 await check.execute(
-                    text(
-                        "SELECT COUNT(*) FROM events_archive "
-                        "WHERE aggregate_id = :aid"
-                    ),
+                    text("SELECT COUNT(*) FROM events_archive WHERE aggregate_id = :aid"),
                     {"aid": str(user_id)},
                 )
             ).scalar_one()

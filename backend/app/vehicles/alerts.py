@@ -60,40 +60,27 @@ class AlertOutcome:
     operator_notified: bool
 
 
-def _fmt_body(
-    bucket: str, count: int, masked_plate: str, now: datetime
-) -> str:
+def _fmt_body(bucket: str, count: int, masked_plate: str, now: datetime) -> str:
     """Compose the SMS body, clamped to SMS_BODY_MAX."""
     iso = now.strftime("%Y-%m-%dT%H:%MZ")
-    body = (
-        "iAuto: XYP failing\n"
-        f"HTTP {bucket} x{count} in 15m\n"
-        f"latest plate {masked_plate}\n"
-        f"{iso}"
-    )
+    body = f"iAuto: XYP failing\nHTTP {bucket} x{count} in 15m\nlatest plate {masked_plate}\n{iso}"
     if len(body) > SMS_BODY_MAX:
         # Drop the trailing timestamp first (least useful), then truncate.
-        body = (
-            "iAuto: XYP failing\n"
-            f"HTTP {bucket} x{count} in 15m\n"
-            f"latest plate {masked_plate}"
-        )[:SMS_BODY_MAX]
+        body = (f"iAuto: XYP failing\nHTTP {bucket} x{count} in 15m\nlatest plate {masked_plate}")[
+            :SMS_BODY_MAX
+        ]
     return body
 
 
 class XypAlerter:
     """Redis-coalesced SMS pager for client-reported XYP failures."""
 
-    def __init__(
-        self, *, redis: Redis, sms: SmsProvider, settings: Settings
-    ) -> None:
+    def __init__(self, *, redis: Redis, sms: SmsProvider, settings: Settings) -> None:
         self.redis = redis
         self.sms = sms
         self.settings = settings
 
-    async def record_and_maybe_page(
-        self, *, status_code: int, masked_plate: str
-    ) -> AlertOutcome:
+    async def record_and_maybe_page(self, *, status_code: int, masked_plate: str) -> AlertOutcome:
         bucket = _bucket(status_code)
         key = _alert_key(bucket)
         window = self.settings.xyp_alert_window_seconds

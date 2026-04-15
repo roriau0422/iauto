@@ -15,7 +15,7 @@ from app.vehicles.schemas import mask_plate, normalize_plate
         (" 9987 УБ Ө ", "9987УБӨ"),
         ("9987убө", "9987УБӨ"),  # lowercase accepted, uppercased
         ("1234АБВ", "1234АБВ"),
-        ("5678ҮБЕ", "5678ҮБЕ"),   # Ү is allowed
+        ("5678ҮБЕ", "5678ҮБЕ"),  # Ү is allowed
     ],
 )
 def test_normalize_plate_accepts(raw: str, expected: str) -> None:
@@ -26,13 +26,13 @@ def test_normalize_plate_accepts(raw: str, expected: str) -> None:
     "raw",
     [
         "",
-        "998УБӨ",          # only 3 digits
-        "99987УБӨ",        # 5 digits
-        "9987УБ",          # only 2 letters
-        "9987УБӨА",        # 4 letters
-        "9987ABC",         # Latin letters
-        "ABCD9999",        # wrong layout
-        "9987У3Ө",         # digit in letter slot
+        "998УБӨ",  # only 3 digits
+        "99987УБӨ",  # 5 digits
+        "9987УБ",  # only 2 letters
+        "9987УБӨА",  # 4 letters
+        "9987ABC",  # Latin letters
+        "ABCD9999",  # wrong layout
+        "9987У3Ө",  # digit in letter slot
     ],
 )
 def test_normalize_plate_rejects(raw: str) -> None:
