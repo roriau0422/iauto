@@ -9,6 +9,7 @@ from typing import Any
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.catalog.service import CatalogService
 from app.identity.providers.sms import SmsProvider
 from app.platform.config import Settings
 from app.platform.errors import ForbiddenError, NotFoundError
@@ -73,6 +74,7 @@ class VehiclesService:
         self.ownerships = OwnershipRepository(session)
         self.plans = LookupPlanRepository(session)
         self.reports = LookupReportRepository(session)
+        self.catalog = CatalogService(session)
         self.alerter = XypAlerter(redis=redis, sms=sms, settings=settings)
 
     # ---- lookup plan -------------------------------------------------------
@@ -94,6 +96,12 @@ class VehiclesService:
     ) -> RegisterResult:
         vin = self._normalize_vin(xyp.cabinNumber)
         parsed = self._parse_xyp(xyp)
+
+        resolved = await self.catalog.resolve_brand_model(
+            make=parsed["make"], model=parsed["model"]
+        )
+        parsed["vehicle_brand_id"] = resolved.brand_id
+        parsed["vehicle_model_id"] = resolved.model_id
 
         vehicle, was_new = await self._get_or_create_vehicle(
             plate=plate,
@@ -142,9 +150,7 @@ class VehiclesService:
     async def list_for_user(self, user_id: uuid.UUID) -> list[Vehicle]:
         return await self.vehicles.list_for_user(user_id)
 
-    async def unregister(
-        self, *, user_id: uuid.UUID, vehicle_id: uuid.UUID
-    ) -> None:
+    async def unregister(self, *, user_id: uuid.UUID, vehicle_id: uuid.UUID) -> None:
         vehicle = await self.vehicles.get_by_id(vehicle_id)
         if vehicle is None:
             raise NotFoundError("Vehicle not found")
@@ -203,9 +209,7 @@ class VehiclesService:
                 masked_plate=masked,
             )
             return ReportResult(
-                alert=AlertOutcome(
-                    fired=False, window_count=0, operator_notified=False
-                )
+                alert=AlertOutcome(fired=False, window_count=0, operator_notified=False)
             )
 
         outcome = await self.alerter.record_and_maybe_page(
@@ -215,9 +219,7 @@ class VehiclesService:
         return ReportResult(alert=outcome)
 
     @staticmethod
-    def _is_user_input_error(
-        status_code: int, error_snippet: str | None
-    ) -> bool:
+    def _is_user_input_error(status_code: int, error_snippet: str | None) -> bool:
         """Return True when the reported failure looks like a user typo.
 
         smartcar.mn returns HTTP 400 with a Mongolian text body containing
@@ -284,9 +286,7 @@ class VehiclesService:
         if vin is not None:
             existing = await self.vehicles.get_by_vin(vin)
             if existing is not None:
-                await self.vehicles.touch_last_seen(
-                    existing, plate=plate, raw_xyp=raw_xyp
-                )
+                await self.vehicles.touch_last_seen(existing, plate=plate, raw_xyp=raw_xyp)
                 return existing, False
 
         created = await self.vehicles.create(
@@ -294,6 +294,8 @@ class VehiclesService:
             plate=plate,
             make=parsed["make"],
             model=parsed["model"],
+            vehicle_brand_id=parsed.get("vehicle_brand_id"),
+            vehicle_model_id=parsed.get("vehicle_model_id"),
             build_year=parsed["build_year"],
             color=parsed["color"],
             engine_number=parsed["engine_number"],

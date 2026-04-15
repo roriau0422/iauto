@@ -26,9 +26,7 @@ class VehicleRepository:
         return await self.session.get(Vehicle, vehicle_id)
 
     async def get_by_vin(self, vin: str) -> Vehicle | None:
-        result = await self.session.execute(
-            select(Vehicle).where(Vehicle.vin == vin)
-        )
+        result = await self.session.execute(select(Vehicle).where(Vehicle.vin == vin))
         return result.scalar_one_or_none()
 
     async def create(
@@ -38,6 +36,8 @@ class VehicleRepository:
         plate: str,
         make: str | None,
         model: str | None,
+        vehicle_brand_id: uuid.UUID | None,
+        vehicle_model_id: uuid.UUID | None,
         build_year: int | None,
         color: str | None,
         engine_number: str | None,
@@ -50,6 +50,8 @@ class VehicleRepository:
             plate=plate,
             make=make,
             model=model,
+            vehicle_brand_id=vehicle_brand_id,
+            vehicle_model_id=vehicle_model_id,
             build_year=build_year,
             color=color,
             engine_number=engine_number,
@@ -105,9 +107,7 @@ class OwnershipRepository:
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none() is not None
 
-    async def add(
-        self, user_id: uuid.UUID, vehicle_id: uuid.UUID
-    ) -> VehicleOwnership:
+    async def add(self, user_id: uuid.UUID, vehicle_id: uuid.UUID) -> VehicleOwnership:
         row = VehicleOwnership(user_id=user_id, vehicle_id=vehicle_id)
         self.session.add(row)
         await self.session.flush()
@@ -142,9 +142,7 @@ class LookupPlanRepository:
         Flips every row to `is_active=false`, then flips the target row on.
         Runs inside the caller's transaction so rollback is safe.
         """
-        await self.session.execute(
-            update(VehicleLookupPlan).values(is_active=False)
-        )
+        await self.session.execute(update(VehicleLookupPlan).values(is_active=False))
         stmt = (
             update(VehicleLookupPlan)
             .where(VehicleLookupPlan.plan_version == plan_version)

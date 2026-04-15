@@ -19,9 +19,7 @@ from app.vehicles.models import VerificationSource
 # Mongolian Cyrillic uppercase alphabet — includes the standard Russian block
 # plus Ё, Ө, and Ү. Enough to accept every valid civilian plate.
 # Sample plate: "9987УБӨ" (4 digits + 3 Cyrillic letters, UB = Ulaanbaatar).
-_PLATE_RE = re.compile(
-    r"^\d{4}[АБВГДЕЁЖЗИЙКЛМНОӨПРСТУҮФХЦЧШЩЪЫЬЭЮЯ]{3}$"
-)
+_PLATE_RE = re.compile(r"^\d{4}[АБВГДЕЁЖЗИЙКЛМНОӨПРСТУҮФХЦЧШЩЪЫЬЭЮЯ]{3}$")
 
 
 def normalize_plate(raw: str) -> str:
@@ -141,6 +139,8 @@ class VehicleOut(BaseModel):
     plate: str
     make: str | None
     model: str | None
+    vehicle_brand_id: uuid.UUID | None
+    vehicle_model_id: uuid.UUID | None
     build_year: int | None
     color: str | None
     engine_number: str | None

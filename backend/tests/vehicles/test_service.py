@@ -39,7 +39,7 @@ XYP_PRIUS = XypPayloadIn(
 XYP_LANDCRUISER = XypPayloadIn(
     markName="Toyota",
     modelName="Land Cruiser 200",
-    buildYear="2018",         # upstream sometimes stringy
+    buildYear="2018",  # upstream sometimes stringy
     cabinNumber="JTMHV05J604123456",
     motorNumber="1VD-FTV-999",
     colorName="Black",
@@ -69,14 +69,10 @@ def service(
     sms: InMemorySmsProvider,
     settings: Settings,
 ) -> VehiclesService:
-    return VehiclesService(
-        session=db_session, redis=redis, sms=sms, settings=settings
-    )
+    return VehiclesService(session=db_session, redis=redis, sms=sms, settings=settings)
 
 
-async def _make_user(
-    db_session: AsyncSession, phone: str = "+97688110001"
-) -> User:
+async def _make_user(db_session: AsyncSession, phone: str = "+97688110001") -> User:
     user = User(phone=phone, role=UserRole.driver)
     db_session.add(user)
     await db_session.flush()
@@ -92,9 +88,7 @@ async def test_register_new_vin_creates_vehicle_and_ownership(
     service: VehiclesService, db_session: AsyncSession
 ) -> None:
     user = await _make_user(db_session)
-    result = await service.register_from_xyp(
-        user_id=user.id, plate=PLATE_A, xyp=XYP_PRIUS
-    )
+    result = await service.register_from_xyp(user_id=user.id, plate=PLATE_A, xyp=XYP_PRIUS)
     assert result.was_new_vehicle is True
     assert result.already_owned is False
     assert result.vehicle.vin == "JTDKN3DU5E1812345"
@@ -102,6 +96,9 @@ async def test_register_new_vin_creates_vehicle_and_ownership(
     assert result.vehicle.model == "Prius"
     assert result.vehicle.build_year == 2014
     assert result.vehicle.verification_source == VerificationSource.xyp_public
+    # Catalog FKs resolved from the seeded Toyota/Prius rows.
+    assert result.vehicle.vehicle_brand_id is not None
+    assert result.vehicle.vehicle_model_id is not None
 
     ownerships = (await db_session.execute(select(VehicleOwnership))).scalars().all()
     assert len(ownerships) == 1
@@ -119,12 +116,8 @@ async def test_register_existing_vin_reuses_vehicle_and_adds_ownership(
     user_a = await _make_user(db_session, phone="+97688110001")
     user_b = await _make_user(db_session, phone="+97688110002")
 
-    await service.register_from_xyp(
-        user_id=user_a.id, plate=PLATE_A, xyp=XYP_PRIUS
-    )
-    result_b = await service.register_from_xyp(
-        user_id=user_b.id, plate=PLATE_A, xyp=XYP_PRIUS
-    )
+    await service.register_from_xyp(user_id=user_a.id, plate=PLATE_A, xyp=XYP_PRIUS)
+    result_b = await service.register_from_xyp(user_id=user_b.id, plate=PLATE_A, xyp=XYP_PRIUS)
 
     assert result_b.was_new_vehicle is False
     assert result_b.already_owned is False
@@ -146,12 +139,8 @@ async def test_register_twice_same_user_is_idempotent(
     service: VehiclesService, db_session: AsyncSession
 ) -> None:
     user = await _make_user(db_session)
-    await service.register_from_xyp(
-        user_id=user.id, plate=PLATE_A, xyp=XYP_PRIUS
-    )
-    result2 = await service.register_from_xyp(
-        user_id=user.id, plate=PLATE_A, xyp=XYP_PRIUS
-    )
+    await service.register_from_xyp(user_id=user.id, plate=PLATE_A, xyp=XYP_PRIUS)
+    result2 = await service.register_from_xyp(user_id=user.id, plate=PLATE_A, xyp=XYP_PRIUS)
     assert result2.already_owned is True
 
     ownerships = (await db_session.execute(select(VehicleOwnership))).scalars().all()
@@ -162,17 +151,17 @@ async def test_null_vin_always_creates_new_vehicle(
     service: VehiclesService, db_session: AsyncSession
 ) -> None:
     user = await _make_user(db_session)
-    r1 = await service.register_from_xyp(
-        user_id=user.id, plate=PLATE_A, xyp=XYP_NO_VIN
-    )
-    r2 = await service.register_from_xyp(
-        user_id=user.id, plate=PLATE_B, xyp=XYP_NO_VIN
-    )
+    r1 = await service.register_from_xyp(user_id=user.id, plate=PLATE_A, xyp=XYP_NO_VIN)
+    r2 = await service.register_from_xyp(user_id=user.id, plate=PLATE_B, xyp=XYP_NO_VIN)
     assert r1.was_new_vehicle is True
     assert r2.was_new_vehicle is True
     vehicles = (await db_session.execute(select(Vehicle))).scalars().all()
     assert len(vehicles) == 2
     assert all(v.vin is None for v in vehicles)
+    # UAZ isn't in the curated seed — catalog FKs stay null, raw strings
+    # stay in the `make` / `model` columns so the UI has something to show.
+    assert all(v.vehicle_brand_id is None for v in vehicles)
+    assert all(v.make == "UAZ" for v in vehicles)
 
 
 # ---------------------------------------------------------------------------
@@ -186,12 +175,8 @@ async def test_list_for_user_returns_only_owned_vehicles(
     user_a = await _make_user(db_session, phone="+97688110011")
     user_b = await _make_user(db_session, phone="+97688110012")
 
-    await service.register_from_xyp(
-        user_id=user_a.id, plate=PLATE_A, xyp=XYP_PRIUS
-    )
-    await service.register_from_xyp(
-        user_id=user_b.id, plate=PLATE_B, xyp=XYP_LANDCRUISER
-    )
+    await service.register_from_xyp(user_id=user_a.id, plate=PLATE_A, xyp=XYP_PRIUS)
+    await service.register_from_xyp(user_id=user_b.id, plate=PLATE_B, xyp=XYP_LANDCRUISER)
 
     a_list = await service.list_for_user(user_a.id)
     b_list = await service.list_for_user(user_b.id)
@@ -205,17 +190,11 @@ async def test_unregister_drops_ownership_but_keeps_vehicle(
     user_a = await _make_user(db_session, phone="+97688110021")
     user_b = await _make_user(db_session, phone="+97688110022")
 
-    r = await service.register_from_xyp(
-        user_id=user_a.id, plate=PLATE_A, xyp=XYP_PRIUS
-    )
-    await service.register_from_xyp(
-        user_id=user_b.id, plate=PLATE_A, xyp=XYP_PRIUS
-    )
+    r = await service.register_from_xyp(user_id=user_a.id, plate=PLATE_A, xyp=XYP_PRIUS)
+    await service.register_from_xyp(user_id=user_b.id, plate=PLATE_A, xyp=XYP_PRIUS)
     await service.unregister(user_id=user_a.id, vehicle_id=r.vehicle.id)
 
-    remaining = (
-        await db_session.execute(select(VehicleOwnership))
-    ).scalars().all()
+    remaining = (await db_session.execute(select(VehicleOwnership))).scalars().all()
     assert len(remaining) == 1
     assert remaining[0].user_id == user_b.id
 
@@ -228,13 +207,9 @@ async def test_unregister_rejects_non_owner(
 ) -> None:
     user_a = await _make_user(db_session, phone="+97688110031")
     user_stranger = await _make_user(db_session, phone="+97688110032")
-    r = await service.register_from_xyp(
-        user_id=user_a.id, plate=PLATE_A, xyp=XYP_PRIUS
-    )
+    r = await service.register_from_xyp(user_id=user_a.id, plate=PLATE_A, xyp=XYP_PRIUS)
     with pytest.raises(ForbiddenError):
-        await service.unregister(
-            user_id=user_stranger.id, vehicle_id=r.vehicle.id
-        )
+        await service.unregister(user_id=user_stranger.id, vehicle_id=r.vehicle.id)
 
 
 async def test_unregister_unknown_vehicle_raises(
@@ -261,9 +236,7 @@ async def test_get_active_plan_returns_seeded_row(
     # Error signatures ship in the plan so the mobile client can classify
     # smartcar's text-body 400s as user input errors instead of outages.
     signatures = plan.expected.get("error_signatures") or []
-    not_found = next(
-        (s for s in signatures if s.get("category") == "not_found"), None
-    )
+    not_found = next((s for s in signatures if s.get("category") == "not_found"), None)
     assert not_found is not None, "not_found signature missing from plan"
     assert not_found["match"]["status"] == 400
     assert "олдсонгүй" in not_found["match"]["body_contains_any"]
@@ -343,9 +316,7 @@ async def test_not_found_report_is_recorded_but_does_not_alert(
         user_id=user.id,
         plate=PLATE_B,
         status_code=400,
-        error_snippet=(
-            "1234УБА дугаартай тээврийн хэрэгслийн мэдээлэл олдсонгүй"
-        ),
+        error_snippet=("1234УБА дугаартай тээврийн хэрэгслийн мэдээлэл олдсонгүй"),
         plan_version="2026-04-15.1",
     )
     assert result.alert.fired is False
@@ -354,12 +325,14 @@ async def test_not_found_report_is_recorded_but_does_not_alert(
 
     # The report + event are still persisted for audit.
     events = (
-        await db_session.execute(
-            select(OutboxEvent).where(
-                OutboxEvent.event_type == "vehicles.lookup_failed"
+        (
+            await db_session.execute(
+                select(OutboxEvent).where(OutboxEvent.event_type == "vehicles.lookup_failed")
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert len(events) == 1
 
 
@@ -421,12 +394,14 @@ async def test_report_emits_lookup_failed_event(
         plan_version="2026-04-15.1",
     )
     events = (
-        await db_session.execute(
-            select(OutboxEvent).where(
-                OutboxEvent.event_type == "vehicles.lookup_failed"
+        (
+            await db_session.execute(
+                select(OutboxEvent).where(OutboxEvent.event_type == "vehicles.lookup_failed")
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert len(events) == 1
     payload = events[0].payload
     assert payload["status_code"] == 502

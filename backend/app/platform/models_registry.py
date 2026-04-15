@@ -6,6 +6,9 @@ table before autogenerate runs. Adding a new model? Import it here.
 
 from __future__ import annotations
 
+# -- catalog -----------------------------------------------------------------
+from app.catalog.models import VehicleBrand, VehicleCountry, VehicleModel
+
 # -- identity ----------------------------------------------------------------
 from app.identity.models import Device, RefreshToken, User
 
@@ -26,7 +29,10 @@ __all__: list[str] = [
     "RefreshToken",
     "User",
     "Vehicle",
+    "VehicleBrand",
+    "VehicleCountry",
     "VehicleLookupPlan",
     "VehicleLookupReport",
+    "VehicleModel",
     "VehicleOwnership",
 ]

@@ -23,8 +23,8 @@ from app.platform.base import Base, Timestamped, UuidPrimaryKey
 
 
 class VerificationSource(StrEnum):
-    xyp_public = "xyp_public"   # Client-posted XYP payload (smartcar.mn)
-    manual = "manual"           # User-entered fallback when XYP unreachable
+    xyp_public = "xyp_public"  # Client-posted XYP payload (smartcar.mn)
+    manual = "manual"  # User-entered fallback when XYP unreachable
 
 
 class Vehicle(UuidPrimaryKey, Timestamped, Base):
@@ -34,6 +34,22 @@ class Vehicle(UuidPrimaryKey, Timestamped, Base):
     plate: Mapped[str] = mapped_column(Text, nullable=False)
     make: Mapped[str | None] = mapped_column(Text, nullable=True)
     model: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Nullable FK into the catalog — resolved at registration time from the
+    # raw XYP `markName` / `modelName` strings. Null means the catalog does
+    # not yet contain this brand/model (curator task), the raw string stays
+    # in `make` / `model` so UIs still have something to show.
+    vehicle_brand_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("vehicle_brands.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    vehicle_model_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("vehicle_models.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     build_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
     color: Mapped[str | None] = mapped_column(Text, nullable=True)
     engine_number: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -111,9 +127,7 @@ class VehicleLookupPlan(UuidPrimaryKey, Timestamped, Base):
     body_template: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     slots: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     expected: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
-    ttl_seconds: Mapped[int] = mapped_column(
-        Integer, nullable=False, server_default="3600"
-    )
+    ttl_seconds: Mapped[int] = mapped_column(Integer, nullable=False, server_default="3600")
 
 
 class VehicleLookupReport(UuidPrimaryKey, Timestamped, Base):

@@ -479,6 +479,107 @@
         "title": "ValidationError",
         "type": "object"
       },
+      "VehicleBrandListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/VehicleBrandOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "VehicleBrandListOut",
+        "type": "object"
+      },
+      "VehicleBrandOut": {
+        "properties": {
+          "country_id": {
+            "format": "uuid",
+            "title": "Country Id",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "sort_order": {
+            "title": "Sort Order",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "country_id",
+          "slug",
+          "name",
+          "sort_order"
+        ],
+        "title": "VehicleBrandOut",
+        "type": "object"
+      },
+      "VehicleCountryListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/VehicleCountryOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "VehicleCountryListOut",
+        "type": "object"
+      },
+      "VehicleCountryOut": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name_en": {
+            "title": "Name En",
+            "type": "string"
+          },
+          "name_mn": {
+            "title": "Name Mn",
+            "type": "string"
+          },
+          "sort_order": {
+            "title": "Sort Order",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name_en",
+          "name_mn",
+          "sort_order"
+        ],
+        "title": "VehicleCountryOut",
+        "type": "object"
+      },
       "VehicleDeleteOut": {
         "properties": {
           "ok": {
@@ -505,6 +606,57 @@
           "items"
         ],
         "title": "VehicleListOut",
+        "type": "object"
+      },
+      "VehicleModelListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/VehicleModelOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "VehicleModelListOut",
+        "type": "object"
+      },
+      "VehicleModelOut": {
+        "properties": {
+          "brand_id": {
+            "format": "uuid",
+            "title": "Brand Id",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "sort_order": {
+            "title": "Sort Order",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "brand_id",
+          "slug",
+          "name",
+          "sort_order"
+        ],
+        "title": "VehicleModelOut",
         "type": "object"
       },
       "VehicleOut": {
@@ -594,6 +746,30 @@
             "title": "Plate",
             "type": "string"
           },
+          "vehicle_brand_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vehicle Brand Id"
+          },
+          "vehicle_model_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vehicle Model Id"
+          },
           "verification_source": {
             "$ref": "#/components/schemas/VerificationSource"
           },
@@ -615,6 +791,8 @@
           "plate",
           "make",
           "model",
+          "vehicle_brand_id",
+          "vehicle_model_id",
           "build_year",
           "color",
           "engine_number",
@@ -936,6 +1114,131 @@
         "summary": "Rotate a refresh token",
         "tags": [
           "identity"
+        ]
+      }
+    },
+    "/v1/catalog/brands": {
+      "get": {
+        "operationId": "list_brands_v1_catalog_brands_get",
+        "parameters": [
+          {
+            "description": "Filter to brands whose country_id matches",
+            "in": "query",
+            "name": "country_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter to brands whose country_id matches",
+              "title": "Country Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleBrandListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List vehicle brands (optionally filtered by country)",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/v1/catalog/countries": {
+      "get": {
+        "operationId": "list_countries_v1_catalog_countries_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleCountryListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List vehicle countries of origin",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/v1/catalog/models": {
+      "get": {
+        "operationId": "list_models_v1_catalog_models_get",
+        "parameters": [
+          {
+            "description": "Filter to models whose brand_id matches",
+            "in": "query",
+            "name": "brand_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter to models whose brand_id matches",
+              "title": "Brand Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleModelListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List vehicle models (optionally filtered by brand)",
+        "tags": [
+          "catalog"
         ]
       }
     },
