@@ -7,7 +7,7 @@ table before autogenerate runs. Adding a new model? Import it here.
 from __future__ import annotations
 
 # -- businesses --------------------------------------------------------------
-from app.businesses.models import Business
+from app.businesses.models import Business, BusinessVehicleBrand
 
 # -- catalog -----------------------------------------------------------------
 from app.catalog.models import VehicleBrand, VehicleCountry, VehicleModel
@@ -16,7 +16,7 @@ from app.catalog.models import VehicleBrand, VehicleCountry, VehicleModel
 from app.identity.models import Device, RefreshToken, User
 
 # -- marketplace -------------------------------------------------------------
-from app.marketplace.models import PartSearchRequest
+from app.marketplace.models import PartSearchRequest, Quote
 
 # -- platform-owned tables (outbox, event archive) ---------------------------
 from app.platform.outbox import OutboxEvent
@@ -31,9 +31,11 @@ from app.vehicles.models import (
 
 __all__: list[str] = [
     "Business",
+    "BusinessVehicleBrand",
     "Device",
     "OutboxEvent",
     "PartSearchRequest",
+    "Quote",
     "RefreshToken",
     "User",
     "Vehicle",

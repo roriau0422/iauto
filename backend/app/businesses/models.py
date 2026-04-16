@@ -3,14 +3,24 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 
-from sqlalchemy import ForeignKey, LargeBinary, Text
+from sqlalchemy import (
+    DateTime,
+    Enum as SAEnum,
+    ForeignKey,
+    Integer,
+    LargeBinary,
+    Text,
+    func,
+)
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.identity.models import User
 from app.platform.base import Base, Timestamped, UuidPrimaryKey
 from app.platform.crypto import get_cipher, get_search_index
+from app.vehicles.models import SteeringSide
 
 
 class Business(UuidPrimaryKey, Timestamped, Base):
@@ -61,3 +71,54 @@ class Business(UuidPrimaryKey, Timestamped, Base):
         normalized = normalize_phone(value)
         self.contact_phone_cipher = get_cipher().encrypt(normalized)
         self.contact_phone_search = get_search_index().compute(normalized)
+
+
+class BusinessVehicleBrand(Base):
+    """Pivot: which vehicle brands (+ year range + steering filter) a business services.
+
+    Composite PK on (business_id, vehicle_brand_id) — a business has at
+    most one coverage entry per brand. `year_start` / `year_end` are
+    inclusive bounds on `vehicles.build_year`; either or both may be NULL
+    to mean "no bound". `steering_side` NULL means "accept LHD and RHD".
+
+    Matches the shape of `vehicle_ownerships` — no surrogate id, natural
+    composite key. The steering_side enum is shared with `vehicles` (both
+    represent the same physical-car attribute) via `create_constraint=False`
+    so SA doesn't re-declare the DB enum.
+    """
+
+    __tablename__ = "business_vehicle_brands"
+
+    business_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("businesses.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    vehicle_brand_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("vehicle_brands.id", ondelete="RESTRICT"),
+        primary_key=True,
+        index=True,
+    )
+    year_start: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    year_end: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    steering_side: Mapped[SteeringSide | None] = mapped_column(
+        SAEnum(
+            SteeringSide,
+            name="vehicle_steering_side",
+            native_enum=True,
+            create_constraint=False,
+        ),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
