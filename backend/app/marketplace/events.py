@@ -34,3 +34,21 @@ class PartSearchCancelled(DomainEvent):
     event_type: Literal["marketplace.part_search_cancelled"] = "marketplace.part_search_cancelled"
     aggregate_type: Literal["part_search_request"] = "part_search_request"
     driver_id: uuid.UUID
+
+
+class QuoteSent(DomainEvent):
+    """A business submitted a price quote against a driver's part search.
+
+    `aggregate_id` = quote.id; `tenant_id` = business_id. Downstream
+    subscribers (session 8 chat auto-thread, session 6 reservation
+    conversion, analytics flywheel) pick this up via the outbox worker.
+    `condition` is the string form of `QuoteCondition` so the archived
+    event stays decoupled from the enum type.
+    """
+
+    event_type: Literal["marketplace.quote_sent"] = "marketplace.quote_sent"
+    aggregate_type: Literal["quote"] = "quote"
+    part_search_id: uuid.UUID
+    driver_id: uuid.UUID
+    price_mnt: int
+    condition: str

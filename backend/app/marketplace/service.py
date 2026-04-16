@@ -1,4 +1,4 @@
-"""Marketplace service — RFQ submission and cancellation (session 4 slice)."""
+"""Marketplace service — RFQ + incoming feed + quotes (sessions 4 + 5)."""
 
 from __future__ import annotations
 
@@ -7,11 +7,12 @@ from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.marketplace.events import PartSearchCancelled, PartSearchSubmitted
-from app.marketplace.models import PartSearchRequest, PartSearchStatus
-from app.marketplace.repository import PartSearchRepository
-from app.marketplace.schemas import PartSearchCreateIn
-from app.platform.errors import ConflictError, NotFoundError
+from app.businesses.service import BusinessesService
+from app.marketplace.events import PartSearchCancelled, PartSearchSubmitted, QuoteSent
+from app.marketplace.models import PartSearchRequest, PartSearchStatus, Quote
+from app.marketplace.repository import PartSearchRepository, QuoteRepository
+from app.marketplace.schemas import PartSearchCreateIn, QuoteCreateIn
+from app.platform.errors import ConflictError, ForbiddenError, NotFoundError
 from app.platform.logging import get_logger
 from app.platform.outbox import write_outbox_event
 from app.vehicles.service import VehiclesService
@@ -25,11 +26,27 @@ class ListResult:
     total: int
 
 
+@dataclass(slots=True)
+class QuoteListResult:
+    items: list[Quote]
+    total: int
+
+
 class MarketplaceService:
-    def __init__(self, *, session: AsyncSession, vehicles_svc: VehiclesService) -> None:
+    def __init__(
+        self,
+        *,
+        session: AsyncSession,
+        vehicles_svc: VehiclesService,
+        businesses_svc: BusinessesService,
+    ) -> None:
         self.session = session
         self.searches = PartSearchRepository(session)
+        self.quotes = QuoteRepository(session)
         self.vehicles_svc = vehicles_svc
+        self.businesses_svc = businesses_svc
+
+    # ---- driver-side (session 4) ------------------------------------------
 
     async def submit_search(
         self,
@@ -39,8 +56,6 @@ class MarketplaceService:
     ) -> PartSearchRequest:
         # Ownership + existence collapsed into a single opaque 404 to avoid
         # leaking whether a vehicle_id exists outside the caller's scope.
-        # Routed through the vehicles service rather than poking at its
-        # repositories directly (ARCHITECTURE.md §3.1).
         vehicle = await self.vehicles_svc.check_ownership(
             user_id=driver_id, vehicle_id=payload.vehicle_id
         )
@@ -112,3 +127,110 @@ class MarketplaceService:
         )
         logger.info("part_search_cancelled", search_id=str(request.id))
         return request
+
+    async def list_quotes_for_search(
+        self,
+        *,
+        driver_id: uuid.UUID,
+        search_id: uuid.UUID,
+        limit: int,
+        offset: int,
+    ) -> QuoteListResult:
+        """Driver views every quote submitted on their own search."""
+        request = await self.get_for_driver(driver_id=driver_id, search_id=search_id)
+        items, total = await self.quotes.list_for_search(
+            part_search_id=request.id, limit=limit, offset=offset
+        )
+        return QuoteListResult(items=items, total=total)
+
+    # ---- business-side (session 5) ----------------------------------------
+
+    async def list_incoming(
+        self,
+        *,
+        business_id: uuid.UUID,
+        limit: int,
+        offset: int,
+    ) -> ListResult:
+        """Paginated feed of open searches matching the business's coverage."""
+        coverage = await self.businesses_svc.get_coverage_filters(business_id)
+        if not coverage:
+            return ListResult(items=[], total=0)
+        items, total = await self.searches.list_incoming(
+            coverage=coverage, limit=limit, offset=offset
+        )
+        return ListResult(items=items, total=total)
+
+    async def submit_quote(
+        self,
+        *,
+        business_id: uuid.UUID,
+        search_id: uuid.UUID,
+        payload: QuoteCreateIn,
+    ) -> Quote:
+        """Business submits a price quote for a driver's open search.
+
+        Checks, in order: search exists (404), search is open (409),
+        business coverage matches this vehicle (403), no duplicate
+        quote from this business (409). Emits `marketplace.quote_sent`
+        on success.
+        """
+        request = await self.searches.get_by_id(search_id)
+        if request is None:
+            raise NotFoundError("Search not found")
+        if request.status != PartSearchStatus.open:
+            raise ConflictError(f"Cannot quote on a search in status '{request.status.value}'")
+
+        coverage = await self.businesses_svc.get_coverage_filters(business_id)
+        # `search_matches_coverage` returns False on empty coverage so
+        # the explicit guard here is defensive clarity only.
+        matches = await self.searches.search_matches_coverage(
+            search_id=search_id, coverage=coverage
+        )
+        if not matches:
+            raise ForbiddenError("This search is outside your vehicle brand coverage")
+
+        existing = await self.quotes.get_by_search_and_business(
+            part_search_id=search_id, business_id=business_id
+        )
+        if existing is not None:
+            raise ConflictError("You have already submitted a quote for this search")
+
+        quote = await self.quotes.create(
+            part_search_id=search_id,
+            business_id=business_id,
+            price_mnt=payload.price_mnt,
+            condition=payload.condition,
+            notes=payload.notes,
+            media_urls=list(payload.media_urls),
+        )
+        write_outbox_event(
+            self.session,
+            QuoteSent(
+                aggregate_id=quote.id,
+                tenant_id=business_id,
+                part_search_id=search_id,
+                driver_id=request.driver_id,
+                price_mnt=payload.price_mnt,
+                condition=payload.condition.value,
+            ),
+        )
+        logger.info(
+            "quote_sent",
+            quote_id=str(quote.id),
+            search_id=str(search_id),
+            business_id=str(business_id),
+        )
+        return quote
+
+    async def list_my_quotes(
+        self,
+        *,
+        business_id: uuid.UUID,
+        limit: int,
+        offset: int,
+    ) -> QuoteListResult:
+        items, total = await self.quotes.list_for_business(
+            business_id=business_id, limit=limit, offset=offset
+        )
+        return QuoteListResult(items=items, total=total)
