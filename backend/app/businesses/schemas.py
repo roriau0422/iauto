@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import NamedTuple, Self
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.identity.schemas import normalize_phone
+from app.vehicles.models import SteeringSide
 
 
 def _optional_normalize_phone(raw: str | None) -> str | None:
@@ -79,3 +81,96 @@ class BusinessOut(BaseModel):
     contact_phone: str | None
     created_at: datetime
     updated_at: datetime
+
+
+# ---------------------------------------------------------------------------
+# Vehicle brand coverage
+# ---------------------------------------------------------------------------
+
+
+# Upper bound on how many brands a single business can declare in one PUT.
+# A shop touching all Japanese brands is ~15; the 50 cap is roomy for
+# multi-brand chains without letting a client flood the pivot table.
+MAX_COVERAGE_ENTRIES = 50
+# Mongolia imported its first cars in the 1920s; nothing predates that on
+# Mongolian roads. Anything above the current year + a small buffer is
+# almost certainly a typo.
+COVERAGE_YEAR_MIN = 1900
+COVERAGE_YEAR_MAX = 2100
+
+
+class VehicleBrandCoverageIn(BaseModel):
+    """One entry in a business's coverage set.
+
+    `year_start`/`year_end` are inclusive bounds on vehicle.build_year.
+    Either can be NULL; NULL-NULL means "every year this brand has ever
+    been made". `steering_side` NULL accepts both LHD and RHD.
+    """
+
+    vehicle_brand_id: uuid.UUID
+    year_start: int | None = Field(
+        default=None,
+        ge=COVERAGE_YEAR_MIN,
+        le=COVERAGE_YEAR_MAX,
+    )
+    year_end: int | None = Field(
+        default=None,
+        ge=COVERAGE_YEAR_MIN,
+        le=COVERAGE_YEAR_MAX,
+    )
+    steering_side: SteeringSide | None = None
+
+    @model_validator(mode="after")
+    def _validate_year_range(self) -> Self:
+        if (
+            self.year_start is not None
+            and self.year_end is not None
+            and self.year_start > self.year_end
+        ):
+            raise ValueError("year_start must not exceed year_end")
+        return self
+
+
+class VehicleBrandCoverageReplaceIn(BaseModel):
+    items: list[VehicleBrandCoverageIn] = Field(
+        default_factory=list, max_length=MAX_COVERAGE_ENTRIES
+    )
+
+    @field_validator("items")
+    @classmethod
+    def _no_duplicate_brands(cls, v: list[VehicleBrandCoverageIn]) -> list[VehicleBrandCoverageIn]:
+        brand_ids = [e.vehicle_brand_id for e in v]
+        if len(brand_ids) != len(set(brand_ids)):
+            raise ValueError("Each vehicle_brand_id must appear at most once")
+        return v
+
+
+class VehicleBrandCoverageOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    vehicle_brand_id: uuid.UUID
+    year_start: int | None
+    year_end: int | None
+    steering_side: SteeringSide | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class VehicleBrandCoverageListOut(BaseModel):
+    items: list[VehicleBrandCoverageOut]
+
+
+class CoverageFilter(NamedTuple):
+    """Value type for a single coverage entry passed across context boundaries.
+
+    Carried from `BusinessesService.get_coverage_filters()` into
+    `MarketplaceService.list_incoming()` / `submit_quote()` and down to
+    `PartSearchRepository` for the SQL WHERE construction. A NamedTuple
+    keeps the hop lightweight and picklable and dodges the alembic
+    `@dataclass` trap noted in lessons.md.
+    """
+
+    brand_id: uuid.UUID
+    year_start: int | None
+    year_end: int | None
+    steering_side: SteeringSide | None

@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.businesses.models import Business
+from app.businesses.models import Business, BusinessVehicleBrand
+from app.catalog.models import VehicleBrand
+from app.vehicles.models import SteeringSide
 
 
 class BusinessRepository:
@@ -41,3 +43,68 @@ class BusinessRepository:
         self.session.add(business)
         await self.session.flush()
         return business
+
+
+class BusinessVehicleBrandRepository:
+    """Read / replace-all for a business's vehicle coverage pivot.
+
+    There's no single-row edit path — session 5 exposes a single PUT
+    that replaces the whole coverage set, which matches how the mobile
+    UI is going to build the form (a multi-select page, not per-brand
+    toggles). Later sessions can add incremental add/remove methods if
+    the flow needs them.
+    """
+
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    async def list_for_business(self, business_id: uuid.UUID) -> list[BusinessVehicleBrand]:
+        """Return coverage rows for a business, joined to the brand for stable ordering."""
+        stmt = (
+            select(BusinessVehicleBrand)
+            .join(
+                VehicleBrand,
+                VehicleBrand.id == BusinessVehicleBrand.vehicle_brand_id,
+            )
+            .where(BusinessVehicleBrand.business_id == business_id)
+            .order_by(VehicleBrand.sort_order, VehicleBrand.name)
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars())
+
+    async def replace_all(
+        self,
+        *,
+        business_id: uuid.UUID,
+        entries: list[tuple[uuid.UUID, int | None, int | None, SteeringSide | None]],
+    ) -> list[BusinessVehicleBrand]:
+        """Delete every coverage row for this business, then insert `entries`.
+
+        Runs inside the caller's transaction — if a downstream error
+        rolls back, the old set is preserved. Each entry is a tuple of
+        (brand_id, year_start, year_end, steering_side).
+        """
+        await self.session.execute(
+            delete(BusinessVehicleBrand).where(BusinessVehicleBrand.business_id == business_id)
+        )
+        rows = [
+            BusinessVehicleBrand(
+                business_id=business_id,
+                vehicle_brand_id=brand_id,
+                year_start=year_start,
+                year_end=year_end,
+                steering_side=steering_side,
+            )
+            for brand_id, year_start, year_end, steering_side in entries
+        ]
+        self.session.add_all(rows)
+        await self.session.flush()
+        return await self.list_for_business(business_id)
+
+    async def filter_known_brand_ids(self, brand_ids: list[uuid.UUID]) -> set[uuid.UUID]:
+        """Return the subset of the given IDs that actually exist in the catalog."""
+        if not brand_ids:
+            return set()
+        stmt = select(VehicleBrand.id).where(VehicleBrand.id.in_(brand_ids))
+        result = await self.session.execute(stmt)
+        return set(result.scalars())
