@@ -14,7 +14,7 @@ from app.marketplace.schemas import PartSearchCreateIn
 from app.platform.errors import ConflictError, NotFoundError
 from app.platform.logging import get_logger
 from app.platform.outbox import write_outbox_event
-from app.vehicles.repository import OwnershipRepository, VehicleRepository
+from app.vehicles.service import VehiclesService
 
 logger = get_logger("app.marketplace.service")
 
@@ -26,11 +26,10 @@ class ListResult:
 
 
 class MarketplaceService:
-    def __init__(self, *, session: AsyncSession) -> None:
+    def __init__(self, *, session: AsyncSession, vehicles_svc: VehiclesService) -> None:
         self.session = session
         self.searches = PartSearchRepository(session)
-        self.vehicles = VehicleRepository(session)
-        self.ownerships = OwnershipRepository(session)
+        self.vehicles_svc = vehicles_svc
 
     async def submit_search(
         self,
@@ -38,12 +37,13 @@ class MarketplaceService:
         driver_id: uuid.UUID,
         payload: PartSearchCreateIn,
     ) -> PartSearchRequest:
-        # Ownership + existence checks collapsed into a single opaque 404
-        # to avoid leaking whether a vehicle_id exists outside the caller's
-        # scope. The same pattern is used in vehicles.unregister.
-        vehicle = await self.vehicles.get_by_id(payload.vehicle_id)
-        if vehicle is None or not await self.ownerships.exists(driver_id, vehicle.id):
-            raise NotFoundError("Vehicle not found")
+        # Ownership + existence collapsed into a single opaque 404 to avoid
+        # leaking whether a vehicle_id exists outside the caller's scope.
+        # Routed through the vehicles service rather than poking at its
+        # repositories directly (ARCHITECTURE.md §3.1).
+        vehicle = await self.vehicles_svc.check_ownership(
+            user_id=driver_id, vehicle_id=payload.vehicle_id
+        )
 
         request = await self.searches.create(
             driver_id=driver_id,

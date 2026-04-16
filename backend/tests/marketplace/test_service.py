@@ -35,11 +35,6 @@ XYP_PRIUS = XypPayloadIn(
 
 
 @pytest.fixture
-def marketplace(db_session: AsyncSession) -> MarketplaceService:
-    return MarketplaceService(session=db_session)
-
-
-@pytest.fixture
 def vehicles_service(
     db_session: AsyncSession,
     redis: Redis,
@@ -47,6 +42,14 @@ def vehicles_service(
     settings: Settings,
 ) -> VehiclesService:
     return VehiclesService(session=db_session, redis=redis, sms=sms, settings=settings)
+
+
+@pytest.fixture
+def marketplace(
+    db_session: AsyncSession,
+    vehicles_service: VehiclesService,
+) -> MarketplaceService:
+    return MarketplaceService(session=db_session, vehicles_svc=vehicles_service)
 
 
 async def _make_driver(db_session: AsyncSession, phone: str) -> User:

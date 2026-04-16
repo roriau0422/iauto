@@ -152,6 +152,30 @@ class VehiclesService:
     async def list_for_user(self, user_id: uuid.UUID) -> list[Vehicle]:
         return await self.vehicles.list_for_user(user_id)
 
+    async def get_vehicle(self, vehicle_id: uuid.UUID) -> Vehicle:
+        """Return a Vehicle by id, 404 if it doesn't exist.
+
+        Public accessor for other contexts (marketplace) that need vehicle
+        facts (brand, build_year, steering_side) without reaching into the
+        vehicles repository directly.
+        """
+        vehicle = await self.vehicles.get_by_id(vehicle_id)
+        if vehicle is None:
+            raise NotFoundError("Vehicle not found")
+        return vehicle
+
+    async def check_ownership(self, *, user_id: uuid.UUID, vehicle_id: uuid.UUID) -> Vehicle:
+        """Return the Vehicle if the user owns it, else opaque 404.
+
+        Matches the `unregister` security convention: we never distinguish
+        "vehicle doesn't exist" from "vehicle exists but you don't own it"
+        — callers outside this context get one error message for both.
+        """
+        vehicle = await self.vehicles.get_by_id(vehicle_id)
+        if vehicle is None or not await self.ownerships.exists(user_id, vehicle_id):
+            raise NotFoundError("Vehicle not found")
+        return vehicle
+
     async def unregister(self, *, user_id: uuid.UUID, vehicle_id: uuid.UUID) -> None:
         vehicle = await self.vehicles.get_by_id(vehicle_id)
         if vehicle is None:
