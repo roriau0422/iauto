@@ -626,6 +626,143 @@
         "title": "PartSearchStatus",
         "type": "string"
       },
+      "QuoteCondition": {
+        "description": "Physical condition of the part a business is offering.\n\nMaps directly to spec §5.3: \"шинэ / хуучин / орж ирсэн\".\n`imported` captures the MN market's \"орж ирсэн\" category — used\nparts sourced from overseas auto markets, a meaningful distinction\nfrom locally-sourced \"хуучин\" second-hand stock.",
+        "enum": [
+          "new",
+          "used",
+          "imported"
+        ],
+        "title": "QuoteCondition",
+        "type": "string"
+      },
+      "QuoteCreateIn": {
+        "properties": {
+          "condition": {
+            "$ref": "#/components/schemas/QuoteCondition"
+          },
+          "media_urls": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 4,
+            "title": "Media Urls",
+            "type": "array"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "price_mnt": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 999999999.0,
+            "title": "Price Mnt",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "price_mnt",
+          "condition"
+        ],
+        "title": "QuoteCreateIn",
+        "type": "object"
+      },
+      "QuoteListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/QuoteOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "QuoteListOut",
+        "type": "object"
+      },
+      "QuoteOut": {
+        "properties": {
+          "condition": {
+            "$ref": "#/components/schemas/QuoteCondition"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "media_urls": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Media Urls",
+            "type": "array"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "part_search_id": {
+            "format": "uuid",
+            "title": "Part Search Id",
+            "type": "string"
+          },
+          "price_mnt": {
+            "title": "Price Mnt",
+            "type": "integer"
+          },
+          "tenant_id": {
+            "format": "uuid",
+            "title": "Tenant Id",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenant_id",
+          "part_search_id",
+          "price_mnt",
+          "condition",
+          "notes",
+          "media_urls",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "QuoteOut",
+        "type": "object"
+      },
       "ReadinessResponse": {
         "properties": {
           "database": {
@@ -802,6 +939,148 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "VehicleBrandCoverageIn": {
+        "description": "One entry in a business's coverage set.\n\n`year_start`/`year_end` are inclusive bounds on vehicle.build_year.\nEither can be NULL; NULL-NULL means \"every year this brand has ever\nbeen made\". `steering_side` NULL accepts both LHD and RHD.",
+        "properties": {
+          "steering_side": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SteeringSide"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "vehicle_brand_id": {
+            "format": "uuid",
+            "title": "Vehicle Brand Id",
+            "type": "string"
+          },
+          "year_end": {
+            "anyOf": [
+              {
+                "maximum": 2100.0,
+                "minimum": 1900.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year End"
+          },
+          "year_start": {
+            "anyOf": [
+              {
+                "maximum": 2100.0,
+                "minimum": 1900.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year Start"
+          }
+        },
+        "required": [
+          "vehicle_brand_id"
+        ],
+        "title": "VehicleBrandCoverageIn",
+        "type": "object"
+      },
+      "VehicleBrandCoverageListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/VehicleBrandCoverageOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "VehicleBrandCoverageListOut",
+        "type": "object"
+      },
+      "VehicleBrandCoverageOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "steering_side": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SteeringSide"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "vehicle_brand_id": {
+            "format": "uuid",
+            "title": "Vehicle Brand Id",
+            "type": "string"
+          },
+          "year_end": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year End"
+          },
+          "year_start": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year Start"
+          }
+        },
+        "required": [
+          "vehicle_brand_id",
+          "year_start",
+          "year_end",
+          "steering_side",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "VehicleBrandCoverageOut",
+        "type": "object"
+      },
+      "VehicleBrandCoverageReplaceIn": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/VehicleBrandCoverageIn"
+            },
+            "maxItems": 50,
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "title": "VehicleBrandCoverageReplaceIn",
         "type": "object"
       },
       "VehicleBrandListOut": {
@@ -1699,6 +1978,112 @@
         ]
       }
     },
+    "/v1/businesses/me/vehicle-brands": {
+      "get": {
+        "operationId": "list_vehicle_brands_v1_businesses_me_vehicle_brands_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleBrandCoverageListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List the business's current vehicle brand coverage",
+        "tags": [
+          "businesses"
+        ]
+      },
+      "put": {
+        "operationId": "replace_vehicle_brands_v1_businesses_me_vehicle_brands_put",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VehicleBrandCoverageReplaceIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleBrandCoverageListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Replace the business's vehicle brand coverage set",
+        "tags": [
+          "businesses"
+        ]
+      }
+    },
     "/v1/catalog/brands": {
       "get": {
         "operationId": "list_brands_v1_catalog_brands_get",
@@ -1845,6 +2230,78 @@
         ]
       }
     },
+    "/v1/marketplace/quotes/mine": {
+      "get": {
+        "operationId": "list_my_quotes_v1_marketplace_quotes_mine_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuoteListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List the authenticated business's submitted quotes",
+        "tags": [
+          "marketplace"
+        ]
+      }
+    },
     "/v1/marketplace/searches": {
       "post": {
         "operationId": "create_search_v1_marketplace_searches_post",
@@ -1899,6 +2356,78 @@
           }
         },
         "summary": "Submit a part search request against one of the driver's vehicles",
+        "tags": [
+          "marketplace"
+        ]
+      }
+    },
+    "/v1/marketplace/searches/incoming": {
+      "get": {
+        "operationId": "list_incoming_searches_v1_marketplace_searches_incoming_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartSearchListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Paginated feed of open searches matching the business's coverage",
         "tags": [
           "marketplace"
         ]
@@ -2106,6 +2635,155 @@
           }
         },
         "summary": "Cancel an open part search",
+        "tags": [
+          "marketplace"
+        ]
+      }
+    },
+    "/v1/marketplace/searches/{search_id}/quotes": {
+      "get": {
+        "operationId": "list_search_quotes_v1_marketplace_searches__search_id__quotes_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "search_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Search Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuoteListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Driver views quotes submitted on their own search",
+        "tags": [
+          "marketplace"
+        ]
+      },
+      "post": {
+        "operationId": "create_quote_v1_marketplace_searches__search_id__quotes_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "search_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Search Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuoteCreateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuoteOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Business submits a price quote on a part search",
         "tags": [
           "marketplace"
         ]
