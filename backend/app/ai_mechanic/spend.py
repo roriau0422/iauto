@@ -21,14 +21,17 @@ _PRICE_MICRO_MNT_PER_1K_TOKENS: dict[str, tuple[int, int]] = {
     # (prompt, completion)
     "gemini/gemini-3-flash-preview": (50, 150),
     "gemini-3-flash-preview": (50, 150),
+    "gemini-multimodal-visual": (60, 180),
     "text-embedding-3-small": (1, 0),
 }
 
 # Audio-second pricing for transcription / multimodal-audio models.
 # Whisper bills per minute; we record per-second to keep the granular
-# spend log honest.
+# spend log honest. Gemini's audio multimodal is roughly 2× Whisper at
+# May 2026 rates.
 _PRICE_MICRO_MNT_PER_AUDIO_SECOND: dict[str, int] = {
     "whisper-1": 333,
+    "gemini-multimodal-audio": 700,
 }
 
 

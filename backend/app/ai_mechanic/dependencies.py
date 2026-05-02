@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai_mechanic.agent import AgentRunner, build_live_runner
 from app.ai_mechanic.embeddings import EmbeddingClient, OpenAIEmbeddingClient
+from app.ai_mechanic.multimodal import GeminiMultimodalClient, MultimodalClient
 from app.ai_mechanic.service import AiMechanicService
 from app.ai_mechanic.warning_lights import (
     HashHeuristicClassifier,
@@ -75,6 +76,15 @@ def get_warning_light_classifier() -> WarningLightClassifier:
     return _build_warning_light_classifier_singleton()
 
 
+@lru_cache(maxsize=1)
+def _build_multimodal_singleton() -> MultimodalClient:
+    return GeminiMultimodalClient(settings=get_settings())
+
+
+def get_multimodal_client() -> MultimodalClient:
+    return _build_multimodal_singleton()
+
+
 def get_redis_dep() -> Redis:
     return get_redis()
 
@@ -87,6 +97,7 @@ def get_ai_mechanic_service(
     whisper: Annotated[WhisperClient, Depends(get_whisper_client)],
     media_download: Annotated[MediaClient, Depends(get_media_download_client)],
     classifier: Annotated[WarningLightClassifier, Depends(get_warning_light_classifier)],
+    multimodal: Annotated[MultimodalClient, Depends(get_multimodal_client)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> AiMechanicService:
     return AiMechanicService(
@@ -97,5 +108,6 @@ def get_ai_mechanic_service(
         whisper=whisper,
         media_download=media_download,
         warning_light_classifier=classifier,
+        multimodal=multimodal,
         settings=settings,
     )

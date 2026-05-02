@@ -275,3 +275,50 @@ class AiWarningLightPrediction(UuidPrimaryKey, Base):
         nullable=False,
         server_default=func.now(),
     )
+
+
+class AiMultimodalKind(StrEnum):
+    visual = "visual"
+    engine_sound = "engine_sound"
+
+
+class AiMultimodalCall(UuidPrimaryKey, Base):
+    """Append-only audit per multimodal LLM call (Gemini).
+
+    Persists prompt + response excerpt for forensics. Token /
+    audio-second counters mirror `ai_spend_events` so the daily-spend
+    cron can sum across all AI surfaces from one place.
+    """
+
+    __tablename__ = "ai_multimodal_calls"
+
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("ai_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    media_asset_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("media_assets.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    kind: Mapped[AiMultimodalKind] = mapped_column(
+        SAEnum(AiMultimodalKind, name="ai_multimodal_kind", native_enum=True),
+        nullable=False,
+    )
+    model: Mapped[str] = mapped_column(Text, nullable=False)
+    prompt: Mapped[str] = mapped_column(Text, nullable=False)
+    response: Mapped[str] = mapped_column(Text, nullable=False)
+    prompt_tokens: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    completion_tokens: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    audio_seconds: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )

@@ -18,15 +18,23 @@ from app.ai_mechanic.embeddings import EmbeddingClient, content_hash
 from app.ai_mechanic.models import (
     AiMessage,
     AiMessageRole,
+    AiMultimodalCall,
+    AiMultimodalKind,
     AiSession,
     AiVoiceTranscript,
     AiWarningLightPrediction,
+)
+from app.ai_mechanic.multimodal import (
+    AUDIO_MODEL,
+    VISUAL_MODEL,
+    MultimodalClient,
 )
 from app.ai_mechanic.rate_limit import AiRateLimiter
 from app.ai_mechanic.repository import (
     AiEmbeddingCacheRepository,
     AiKbRepository,
     AiMessageRepository,
+    AiMultimodalCallRepository,
     AiSessionRepository,
     AiSpendRepository,
     AiVoiceTranscriptRepository,
@@ -34,9 +42,11 @@ from app.ai_mechanic.repository import (
     AiWarningLightTaxonomyRepository,
 )
 from app.ai_mechanic.schemas import (
+    EngineSoundMessageCreateIn,
     KbDocumentCreateIn,
     MessageCreateIn,
     SessionCreateIn,
+    VisualMessageCreateIn,
     VoiceMessageCreateIn,
     WarningLightMessageCreateIn,
 )
@@ -116,11 +126,30 @@ class WarningLightReply:
     agent_micro_mnt: int
 
 
+@dataclass(slots=True)
+class MultimodalReply:
+    call: AiMultimodalCall
+    user_message: AiMessage
+    assistant_message: AiMessage
+    prompt_tokens: int
+    completion_tokens: int
+    multimodal_micro_mnt: int
+    agent_micro_mnt: int
+
+
 WHISPER_MODEL_NAME = "whisper-1"
 # Confidence floor for surfacing a label to the LLM. Anything below
 # this gets dropped from the user-message summary so the agent doesn't
 # chase 0.05-confidence noise.
 WARNING_LIGHT_CONFIDENCE_FLOOR = 0.20
+
+# Default prompt for engine-sound diagnosis when the caller doesn't
+# supply one. Keeps the audio LLM grounded in the diagnostic frame.
+ENGINE_SOUND_DEFAULT_PROMPT = (
+    "You are an experienced auto mechanic. Listen to this engine "
+    "recording and identify the most likely mechanical fault. Be "
+    "specific (component, symptom). If the audio is unclear, say so."
+)
 
 
 class AiMechanicService:
@@ -135,6 +164,7 @@ class AiMechanicService:
         whisper: WhisperClient | None = None,
         media_download: object | None = None,
         warning_light_classifier: WarningLightClassifier | None = None,
+        multimodal: MultimodalClient | None = None,
     ) -> None:
         self.session = session
         self.runner = runner
@@ -143,10 +173,11 @@ class AiMechanicService:
         self.whisper = whisper
         # `media_download` is the optional `MediaClient`-shaped fetcher
         # used to pull audio/image bytes for AI ingestion. Passed in
-        # so the voice + warning-light paths don't have to import a
-        # fresh S3 client per request.
+        # so the voice + warning-light + multimodal paths don't have to
+        # import a fresh S3 client per request.
         self.media_download = media_download
         self.warning_light_classifier = warning_light_classifier
+        self.multimodal = multimodal
         self.kb = AiKbRepository(session)
         self.cache = AiEmbeddingCacheRepository(session)
         self.sessions = AiSessionRepository(session)
@@ -155,6 +186,7 @@ class AiMechanicService:
         self.transcripts = AiVoiceTranscriptRepository(session)
         self.warning_light_taxonomy = AiWarningLightTaxonomyRepository(session)
         self.warning_light_predictions = AiWarningLightPredictionRepository(session)
+        self.multimodal_calls = AiMultimodalCallRepository(session)
         self.rate_limiter = AiRateLimiter(
             redis=redis, daily_limit=settings.ai_daily_request_limit_per_user
         )
@@ -560,5 +592,159 @@ class AiMechanicService:
             prompt_tokens=agent_reply.prompt_tokens,
             completion_tokens=agent_reply.completion_tokens,
             classifier_micro_mnt=0,
+            agent_micro_mnt=agent_reply.est_cost_micro_mnt,
+        )
+
+    async def post_visual_message(
+        self,
+        *,
+        session_id: uuid.UUID,
+        user_id: uuid.UUID,
+        payload: VisualMessageCreateIn,
+    ) -> MultimodalReply:
+        """Open-vocab visual Q&A: image + prompt → Gemini multimodal → agent."""
+        return await self._post_multimodal(
+            session_id=session_id,
+            user_id=user_id,
+            asset_id=payload.media_asset_id,
+            prompt=payload.prompt,
+            kind=AiMultimodalKind.visual,
+            allowed_purposes={
+                MediaAssetPurpose.part_search,
+                MediaAssetPurpose.review,
+                MediaAssetPurpose.story,
+            },
+        )
+
+    async def post_engine_sound_message(
+        self,
+        *,
+        session_id: uuid.UUID,
+        user_id: uuid.UUID,
+        payload: EngineSoundMessageCreateIn,
+    ) -> MultimodalReply:
+        """Engine-sound diagnosis. Whisper is wrong for non-speech audio."""
+        prompt = (payload.prompt or "").strip() or ENGINE_SOUND_DEFAULT_PROMPT
+        return await self._post_multimodal(
+            session_id=session_id,
+            user_id=user_id,
+            asset_id=payload.media_asset_id,
+            prompt=prompt,
+            kind=AiMultimodalKind.engine_sound,
+            allowed_purposes={MediaAssetPurpose.engine_sound},
+        )
+
+    async def _post_multimodal(
+        self,
+        *,
+        session_id: uuid.UUID,
+        user_id: uuid.UUID,
+        asset_id: uuid.UUID,
+        prompt: str,
+        kind: AiMultimodalKind,
+        allowed_purposes: set[MediaAssetPurpose],
+    ) -> MultimodalReply:
+        if self.multimodal is None or self.media_download is None:
+            raise ConflictError("Multimodal AI is not configured")
+
+        sess = await self.get_session_for_user(session_id=session_id, user_id=user_id)
+        await self.rate_limiter.check_and_consume(user_id=user_id)
+
+        asset = await self.session.get(MediaAsset, asset_id)
+        if asset is None or asset.owner_id != user_id:
+            raise NotFoundError("Asset not found")
+        if asset.purpose not in allowed_purposes:
+            raise ConflictError(
+                f"Asset purpose '{asset.purpose.value}' not allowed for {kind.value}"
+            )
+        if asset.status != MediaAssetStatus.active:
+            raise ConflictError("Asset is not active; confirm the upload first")
+
+        download = self.media_download.download_bytes  # type: ignore[attr-defined]
+        payload_bytes = await download(object_key=asset.object_key)
+
+        if kind == AiMultimodalKind.visual:
+            mm = await self.multimodal.visual(
+                prompt=prompt,
+                image_bytes=payload_bytes,
+                image_mime=asset.content_type,
+            )
+            model_label = VISUAL_MODEL
+            audio_seconds = 0
+        else:
+            mm = await self.multimodal.audio(
+                prompt=prompt,
+                audio_bytes=payload_bytes,
+                audio_mime=asset.content_type,
+            )
+            model_label = AUDIO_MODEL
+            # Multimodal audio cost approximates duration from byte size
+            # at 16kbps until LiteLLM exposes provider-side duration. A
+            # mid-2026 follow-up swaps this for the real number once
+            # Gemini surfaces it.
+            audio_seconds = max(1, len(payload_bytes) // 2_000)
+
+        if not mm.text.strip():
+            raise ConflictError("Multimodal model returned an empty response")
+
+        call_row = await self.multimodal_calls.create(
+            session_id=sess.id,
+            user_id=user_id,
+            media_asset_id=asset.id,
+            kind=kind,
+            model=model_label,
+            prompt=prompt,
+            response=mm.text,
+            prompt_tokens=mm.prompt_tokens,
+            completion_tokens=mm.completion_tokens,
+            audio_seconds=audio_seconds,
+        )
+        cost = estimate_cost_micro_mnt(
+            model=model_label,
+            prompt_tokens=mm.prompt_tokens,
+            completion_tokens=mm.completion_tokens,
+            audio_seconds=audio_seconds,
+        )
+        await self.spend.record(
+            user_id=user_id,
+            session_id=sess.id,
+            model=model_label,
+            prompt_tokens=mm.prompt_tokens,
+            completion_tokens=mm.completion_tokens,
+            audio_seconds=audio_seconds,
+            est_cost_micro_mnt=cost,
+        )
+
+        # Hand the multimodal model's response to the agent loop as a
+        # synthesised user turn so it can ground its diagnosis (or
+        # follow up via tools) instead of replacing the whole flow.
+        if kind == AiMultimodalKind.visual:
+            wrapped = (
+                "[visual analysis]\n"
+                f"Prompt: {prompt}\n"
+                f"Vision model response: {mm.text}\n"
+                "Diagnose, recommend repairs, and search parts as needed."
+            )
+        else:
+            wrapped = (
+                "[engine-sound analysis]\n"
+                f"Audio model response: {mm.text}\n"
+                "Diagnose the most likely fault and recommend next steps."
+            )
+        agent_reply = await self._dispatch_agent(session=sess, user_id=user_id, content=wrapped)
+        logger.info(
+            "ai_multimodal_call",
+            session_id=str(sess.id),
+            call_id=str(call_row.id),
+            kind=kind.value,
+            multimodal_micro_mnt=cost,
+        )
+        return MultimodalReply(
+            call=call_row,
+            user_message=agent_reply.user_message,
+            assistant_message=agent_reply.assistant_message,
+            prompt_tokens=agent_reply.prompt_tokens,
+            completion_tokens=agent_reply.completion_tokens,
+            multimodal_micro_mnt=cost,
             agent_micro_mnt=agent_reply.est_cost_micro_mnt,
         )

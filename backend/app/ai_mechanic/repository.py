@@ -18,6 +18,8 @@ from app.ai_mechanic.models import (
     AiKbDocument,
     AiMessage,
     AiMessageRole,
+    AiMultimodalCall,
+    AiMultimodalKind,
     AiSession,
     AiSessionStatus,
     AiSpendEvent,
@@ -351,6 +353,41 @@ class AiWarningLightPredictionRepository:
             model=model,
             predictions=predictions,
             top_code=top_code,
+        )
+        self.session.add(row)
+        await self.session.flush()
+        return row
+
+
+class AiMultimodalCallRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    async def create(
+        self,
+        *,
+        session_id: uuid.UUID,
+        user_id: uuid.UUID,
+        media_asset_id: uuid.UUID,
+        kind: AiMultimodalKind,
+        model: str,
+        prompt: str,
+        response: str,
+        prompt_tokens: int,
+        completion_tokens: int,
+        audio_seconds: int = 0,
+    ) -> AiMultimodalCall:
+        row = AiMultimodalCall(
+            session_id=session_id,
+            user_id=user_id,
+            media_asset_id=media_asset_id,
+            kind=kind,
+            model=model,
+            prompt=prompt,
+            response=response,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            audio_seconds=audio_seconds,
         )
         self.session.add(row)
         await self.session.flush()

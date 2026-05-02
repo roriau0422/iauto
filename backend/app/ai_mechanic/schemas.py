@@ -144,6 +144,51 @@ class WarningLightReplyOut(BaseModel):
     agent_micro_mnt: int
 
 
+class VisualMessageCreateIn(BaseModel):
+    media_asset_id: uuid.UUID
+    prompt: str = Field(..., min_length=1, max_length=MAX_QUERY)
+
+    @field_validator("prompt")
+    @classmethod
+    def _trim_prompt(cls, v: str) -> str:
+        trimmed = v.strip()
+        if not trimmed:
+            raise ValueError("prompt must not be blank")
+        return trimmed
+
+
+class EngineSoundMessageCreateIn(BaseModel):
+    media_asset_id: uuid.UUID
+    prompt: str | None = Field(default=None, max_length=MAX_QUERY)
+
+
+class MultimodalCallOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    session_id: uuid.UUID
+    media_asset_id: uuid.UUID
+    kind: str
+    model: str
+    response: str
+    prompt_tokens: int
+    completion_tokens: int
+    audio_seconds: int
+    created_at: datetime
+
+
+class MultimodalReplyOut(BaseModel):
+    """Visual or engine-sound multimodal call → agent reply."""
+
+    call: MultimodalCallOut
+    user_message: MessageOut
+    assistant_message: MessageOut
+    prompt_tokens: int
+    completion_tokens: int
+    multimodal_micro_mnt: int
+    agent_micro_mnt: int
+
+
 # ---------------------------------------------------------------------------
 # Knowledge base ingestion (admin / phase-3 dev surface)
 # ---------------------------------------------------------------------------

@@ -893,6 +893,32 @@
         "title": "EmptyOut",
         "type": "object"
       },
+      "EngineSoundMessageCreateIn": {
+        "properties": {
+          "media_asset_id": {
+            "format": "uuid",
+            "title": "Media Asset Id",
+            "type": "string"
+          },
+          "prompt": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt"
+          }
+        },
+        "required": [
+          "media_asset_id"
+        ],
+        "title": "EngineSoundMessageCreateIn",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1331,7 +1357,8 @@
           "story",
           "ad",
           "voice",
-          "warning_light"
+          "warning_light",
+          "engine_sound"
         ],
         "title": "MediaAssetPurpose",
         "type": "string"
@@ -1514,6 +1541,109 @@
           "created_at"
         ],
         "title": "MessageOut",
+        "type": "object"
+      },
+      "MultimodalCallOut": {
+        "properties": {
+          "audio_seconds": {
+            "title": "Audio Seconds",
+            "type": "integer"
+          },
+          "completion_tokens": {
+            "title": "Completion Tokens",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "media_asset_id": {
+            "format": "uuid",
+            "title": "Media Asset Id",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "prompt_tokens": {
+            "title": "Prompt Tokens",
+            "type": "integer"
+          },
+          "response": {
+            "title": "Response",
+            "type": "string"
+          },
+          "session_id": {
+            "format": "uuid",
+            "title": "Session Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "session_id",
+          "media_asset_id",
+          "kind",
+          "model",
+          "response",
+          "prompt_tokens",
+          "completion_tokens",
+          "audio_seconds",
+          "created_at"
+        ],
+        "title": "MultimodalCallOut",
+        "type": "object"
+      },
+      "MultimodalReplyOut": {
+        "description": "Visual or engine-sound multimodal call → agent reply.",
+        "properties": {
+          "agent_micro_mnt": {
+            "title": "Agent Micro Mnt",
+            "type": "integer"
+          },
+          "assistant_message": {
+            "$ref": "#/components/schemas/MessageOut"
+          },
+          "call": {
+            "$ref": "#/components/schemas/MultimodalCallOut"
+          },
+          "completion_tokens": {
+            "title": "Completion Tokens",
+            "type": "integer"
+          },
+          "multimodal_micro_mnt": {
+            "title": "Multimodal Micro Mnt",
+            "type": "integer"
+          },
+          "prompt_tokens": {
+            "title": "Prompt Tokens",
+            "type": "integer"
+          },
+          "user_message": {
+            "$ref": "#/components/schemas/MessageOut"
+          }
+        },
+        "required": [
+          "call",
+          "user_message",
+          "assistant_message",
+          "prompt_tokens",
+          "completion_tokens",
+          "multimodal_micro_mnt",
+          "agent_micro_mnt"
+        ],
+        "title": "MultimodalReplyOut",
         "type": "object"
       },
       "MyCarItemOut": {
@@ -4495,6 +4625,27 @@
         "title": "VerificationSource",
         "type": "string"
       },
+      "VisualMessageCreateIn": {
+        "properties": {
+          "media_asset_id": {
+            "format": "uuid",
+            "title": "Media Asset Id",
+            "type": "string"
+          },
+          "prompt": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Prompt",
+            "type": "string"
+          }
+        },
+        "required": [
+          "media_asset_id",
+          "prompt"
+        ],
+        "title": "VisualMessageCreateIn",
+        "type": "object"
+      },
       "VoiceMessageCreateIn": {
         "properties": {
           "language": {
@@ -5726,6 +5877,75 @@
         ]
       }
     },
+    "/v1/ai-mechanic/sessions/{session_id}/engine-sound": {
+      "post": {
+        "operationId": "post_engine_sound_message_v1_ai_mechanic_sessions__session_id__engine_sound_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EngineSoundMessageCreateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MultimodalReplyOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Engine-sound recording → Gemini multimodal → agent diagnosis",
+        "tags": [
+          "ai_mechanic"
+        ]
+      }
+    },
     "/v1/ai-mechanic/sessions/{session_id}/messages": {
       "get": {
         "operationId": "list_messages_v1_ai_mechanic_sessions__session_id__messages_get",
@@ -5847,6 +6067,75 @@
           }
         },
         "summary": "Send a user message; persist + run agent + return assistant reply",
+        "tags": [
+          "ai_mechanic"
+        ]
+      }
+    },
+    "/v1/ai-mechanic/sessions/{session_id}/visual": {
+      "post": {
+        "operationId": "post_visual_message_v1_ai_mechanic_sessions__session_id__visual_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisualMessageCreateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MultimodalReplyOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Image + prompt → Gemini multimodal → agent diagnosis",
         "tags": [
           "ai_mechanic"
         ]

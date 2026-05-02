@@ -40,6 +40,7 @@ class MediaAssetPurpose(StrEnum):
     ad = "ad"
     voice = "voice"
     warning_light = "warning_light"
+    engine_sound = "engine_sound"
 
 
 class MediaAsset(UuidPrimaryKey, Timestamped, Base):

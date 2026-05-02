@@ -10,15 +10,19 @@ from fastapi import APIRouter, Depends, Query, status
 from app.ai_mechanic.dependencies import get_ai_mechanic_service
 from app.ai_mechanic.schemas import (
     AssistantReplyOut,
+    EngineSoundMessageCreateIn,
     KbDocumentCreateIn,
     KbDocumentIngestedOut,
     KbDocumentOut,
     MessageCreateIn,
     MessageListOut,
     MessageOut,
+    MultimodalCallOut,
+    MultimodalReplyOut,
     SessionCreateIn,
     SessionListOut,
     SessionOut,
+    VisualMessageCreateIn,
     VoiceMessageCreateIn,
     VoiceReplyOut,
     VoiceTranscriptOut,
@@ -27,7 +31,7 @@ from app.ai_mechanic.schemas import (
     WarningLightPredictionOut,
     WarningLightReplyOut,
 )
-from app.ai_mechanic.service import AiMechanicService
+from app.ai_mechanic.service import AiMechanicService, MultimodalReply
 from app.identity.dependencies import get_current_user
 from app.identity.models import User, UserRole
 
@@ -166,6 +170,53 @@ async def post_warning_light_message(
         prompt_tokens=reply.prompt_tokens,
         completion_tokens=reply.completion_tokens,
         classifier_micro_mnt=reply.classifier_micro_mnt,
+        agent_micro_mnt=reply.agent_micro_mnt,
+    )
+
+
+@router.post(
+    "/ai-mechanic/sessions/{session_id}/visual",
+    response_model=MultimodalReplyOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Image + prompt → Gemini multimodal → agent diagnosis",
+)
+async def post_visual_message(
+    session_id: uuid.UUID,
+    body: VisualMessageCreateIn,
+    service: Annotated[AiMechanicService, Depends(get_ai_mechanic_service)],
+    user: Annotated[User, Depends(get_current_user)],
+) -> MultimodalReplyOut:
+    reply = await service.post_visual_message(session_id=session_id, user_id=user.id, payload=body)
+    return _multimodal_reply_to_out(reply)
+
+
+@router.post(
+    "/ai-mechanic/sessions/{session_id}/engine-sound",
+    response_model=MultimodalReplyOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Engine-sound recording → Gemini multimodal → agent diagnosis",
+)
+async def post_engine_sound_message(
+    session_id: uuid.UUID,
+    body: EngineSoundMessageCreateIn,
+    service: Annotated[AiMechanicService, Depends(get_ai_mechanic_service)],
+    user: Annotated[User, Depends(get_current_user)],
+) -> MultimodalReplyOut:
+    reply = await service.post_engine_sound_message(
+        session_id=session_id, user_id=user.id, payload=body
+    )
+    return _multimodal_reply_to_out(reply)
+
+
+def _multimodal_reply_to_out(reply: MultimodalReply) -> MultimodalReplyOut:
+    """Shared adapter for the visual + engine-sound endpoints."""
+    return MultimodalReplyOut(
+        call=MultimodalCallOut.model_validate(reply.call),
+        user_message=MessageOut.model_validate(reply.user_message),
+        assistant_message=MessageOut.model_validate(reply.assistant_message),
+        prompt_tokens=reply.prompt_tokens,
+        completion_tokens=reply.completion_tokens,
+        multimodal_micro_mnt=reply.multimodal_micro_mnt,
         agent_micro_mnt=reply.agent_micro_mnt,
     )
 
