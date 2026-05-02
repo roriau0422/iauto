@@ -1,9 +1,10 @@
 /**
  * `/v1/story/*` — feed, post, like, comment.
  *
- * Driver-authored stories are NOT yet supported by the backend; phase 1
- * only exposes business-authored posts. The mobile UI surfaces a "Phase
- * 2" disclosure for that gap rather than mocking driver posts.
+ * Both driver- and business-authored posts ride the same `publishPost`
+ * call: the backend branches on `User.role` server-side and stamps the
+ * resulting row with `author_kind` + nullable `tenant_id`. The mobile
+ * composer doesn't pass the kind — it's inferred from the caller.
  */
 
 import { apiClient } from './client';

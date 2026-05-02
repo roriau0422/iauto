@@ -1,28 +1,34 @@
 /**
- * Driver service-history + dues screen. Pulls real data from:
- *   - GET /v1/vehicles/me              (find primary vehicle)
- *   - GET /v1/vehicles/{id}/service-history
- *   - GET /v1/vehicles/{id}/tax        (placeholder shape; phase 2 fills in)
- *   - GET /v1/vehicles/{id}/insurance
- *   - GET /v1/vehicles/{id}/fines
+ * Driver service-history + dues screen.
  *
- * The dues amounts/dates are stub-shape per `MyCarItemOut` — real data
- * pipelines land in a later session. We surface "Удахгүй" copy on
- * empty/null amount instead of fabricating numbers.
+ * Sources:
+ *   - GET /v1/vehicles/me                         (find primary vehicle)
+ *   - GET /v1/vehicles/{id}/service-history
+ *   - GET /v1/vehicles/{id}/dues                  (real tax / insurance / fines rows)
+ *   - POST /v1/vehicles/{id}/dues/{dueId}/pay     (QPay invoice creation)
+ *
+ * The pay flow:
+ *   1. user taps "Төлөх" — we kick off the invoice via `payDue`,
+ *   2. open the QPay deeplink in the system browser (or first url in
+ *      `urls`), and
+ *   3. flip the dues query into a 4 s polling cadence until the row's
+ *      status flips to `paid` (or the user pulls back).
  */
 
 import { Feather } from '@expo/vector-icons';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+import { useCallback, useState } from 'react';
+import { Alert, StyleSheet, View } from 'react-native';
 
 import {
+  listDues,
   listMyVehicles,
   listServiceHistory,
-  listVehicleFines,
-  listVehicleInsurance,
-  listVehicleTax,
+  payDue,
 } from '../../src/api/vehicles';
+import { Button } from '../../src/components/Button';
 import { Empty, Loading } from '../../src/components/Empty';
 import { Glass } from '../../src/components/Glass';
 import { IconButton } from '../../src/components/IconButton';
@@ -32,34 +38,113 @@ import { ScreenHeader } from '../../src/components/ScreenHeader';
 import { Text } from '../../src/components/Text';
 import { dateOnly, fmt, mnt } from '../../src/lib/format';
 import { useTheme } from '../../src/theme/ThemeProvider';
+import type { components } from '../../types/api';
+
+type VehicleDueOut = components['schemas']['VehicleDueOut'];
+type VehicleDueKind = components['schemas']['VehicleDueKind'];
+
+const DUE_LABELS: Record<VehicleDueKind, string> = {
+  tax: 'Тээврийн хураамж',
+  insurance: 'Даатгал',
+  fines: 'Жолооны торгууль',
+};
+
+const DUE_ICONS: Record<VehicleDueKind, 'credit-card' | 'umbrella' | 'shield'> = {
+  tax: 'credit-card',
+  insurance: 'umbrella',
+  fines: 'shield',
+};
 
 export default function ServiceScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const qc = useQueryClient();
   const vehiclesQ = useQuery({ queryKey: ['vehicles', 'me'], queryFn: () => listMyVehicles() });
   const primary = vehiclesQ.data?.items?.[0] ?? null;
   const id = primary?.id;
+
+  /**
+   * IDs of dues whose payments are in flight (after the user tapped
+   * "Төлөх" and we successfully kicked off the QPay invoice). While
+   * any are present we keep polling the dues list every 4 s until the
+   * backend reports `status === 'paid'` for them.
+   */
+  const [pendingPayIds, setPendingPayIds] = useState<Set<string>>(new Set());
 
   const histQ = useQuery({
     queryKey: ['vehicle', id, 'service-history'],
     queryFn: () => (id ? listServiceHistory(id) : Promise.reject(new Error('no vehicle'))),
     enabled: !!id,
   });
-  const taxQ = useQuery({
-    queryKey: ['vehicle', id, 'tax'],
-    queryFn: () => (id ? listVehicleTax(id) : Promise.reject(new Error('no vehicle'))),
+
+  const duesQ = useQuery({
+    queryKey: ['vehicle', id, 'dues'],
+    queryFn: () => (id ? listDues(id) : Promise.reject(new Error('no vehicle'))),
     enabled: !!id,
+    refetchInterval: pendingPayIds.size > 0 ? 4000 : false,
   });
-  const insQ = useQuery({
-    queryKey: ['vehicle', id, 'insurance'],
-    queryFn: () => (id ? listVehicleInsurance(id) : Promise.reject(new Error('no vehicle'))),
-    enabled: !!id,
+
+  // Once the backend reports a pending due as `paid`, drop it from the
+  // polling set. When the set empties, the `refetchInterval` above
+  // turns itself off automatically on the next render.
+  const dueItems = duesQ.data?.items ?? [];
+  const stillPending = new Set<string>();
+  for (const due of dueItems) {
+    if (pendingPayIds.has(due.id) && due.status !== 'paid') {
+      stillPending.add(due.id);
+    }
+  }
+  if (stillPending.size !== pendingPayIds.size) {
+    queueMicrotask(() => setPendingPayIds(stillPending));
+  }
+
+  const payMu = useMutation({
+    mutationFn: async (vars: { vehicleId: string; dueId: string }) => {
+      return payDue(vars.vehicleId, vars.dueId);
+    },
+    onSuccess: async (out, vars) => {
+      // Mark this due as in-flight so the dues query starts polling.
+      setPendingPayIds((prev) => {
+        const next = new Set(prev);
+        next.add(vars.dueId);
+        return next;
+      });
+      await qc.invalidateQueries({ queryKey: ['vehicle', id, 'dues'] });
+      // Open the deeplink the user can complete payment in.
+      const target =
+        out.deeplink ??
+        (Array.isArray(out.urls) && out.urls.length > 0
+          ? typeof out.urls[0]?.link === 'string'
+            ? (out.urls[0].link as string)
+            : null
+          : null);
+      if (target) {
+        try {
+          await WebBrowser.openBrowserAsync(target);
+        } catch {
+          // openBrowser failures are non-fatal — the polling will
+          // still flip the row once the user finishes in another
+          // app.
+        }
+      } else {
+        Alert.alert(
+          'QPay холбоос алга',
+          'Төлбөрийн линк боловсруулагдаж байна. Хэсэг хүлээж дахин оролдоно уу.',
+        );
+      }
+    },
+    onError: () => {
+      Alert.alert('Алдаа', 'Төлбөрийн нэхэмжлэх үүсгэж чадсангүй.');
+    },
   });
-  const finesQ = useQuery({
-    queryKey: ['vehicle', id, 'fines'],
-    queryFn: () => (id ? listVehicleFines(id) : Promise.reject(new Error('no vehicle'))),
-    enabled: !!id,
-  });
+
+  const onPay = useCallback(
+    (due: VehicleDueOut) => {
+      if (!id) return;
+      payMu.mutate({ vehicleId: id, dueId: due.id });
+    },
+    [id, payMu],
+  );
 
   if (vehiclesQ.isLoading) return <Loading />;
   if (!primary) {
@@ -79,12 +164,6 @@ export default function ServiceScreen() {
     );
   }
 
-  const dues: { kind: string; label: string; data: typeof taxQ.data }[] = [
-    { kind: 'tax', label: 'Тээврийн хураамж', data: taxQ.data },
-    { kind: 'insurance', label: 'Даатгал', data: insQ.data },
-    { kind: 'fines', label: 'Жолооны торгууль', data: finesQ.data },
-  ];
-
   return (
     <Screen scroll>
       <ScreenHeader
@@ -99,60 +178,23 @@ export default function ServiceScreen() {
 
       <View style={{ paddingHorizontal: 18 }}>
         <View style={{ gap: 8 }}>
-          {dues.map((d) => {
-            const items = d.data?.items ?? [];
-            const top = items[0];
-            const due = top?.due_at;
-            const amount = top?.amount_mnt;
-            const isDue = due ? new Date(due).getTime() - Date.now() < 30 * 24 * 60 * 60 * 1000 : false;
-            return (
-              <Glass
-                key={d.kind}
-                radius="md"
-                style={{
-                  borderLeftWidth: 3,
-                  borderLeftColor: isDue ? theme.colors.warn : theme.colors.success,
-                }}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <View
-                    style={[
-                      styles.icoBox,
-                      {
-                        backgroundColor: isDue
-                          ? 'rgba(255,179,71,0.18)'
-                          : 'rgba(94,226,160,0.16)',
-                      },
-                    ]}
-                  >
-                    <Feather
-                      name={d.kind === 'fines' ? 'shield' : d.kind === 'insurance' ? 'umbrella' : 'credit-card'}
-                      size={18}
-                      color={isDue ? theme.colors.warn : theme.colors.success}
-                    />
-                  </View>
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text variant="body" weight="600">
-                      {d.label}
-                    </Text>
-                    <Text variant="caption" tone="tertiary" style={{ marginTop: 2 }}>
-                      {due ? `Хугацаа: ${dateOnly(due)}` : 'Удахгүй холбогдоно'}
-                    </Text>
-                  </View>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text variant="num" weight="700">
-                      {amount != null ? mnt(amount) : '—'}
-                    </Text>
-                    {isDue ? (
-                      <Text variant="caption" tone="warn" weight="600">
-                        QPay-ээр төлөх →
-                      </Text>
-                    ) : null}
-                  </View>
-                </View>
-              </Glass>
-            );
-          })}
+          {duesQ.isLoading && dueItems.length === 0 ? (
+            <Loading />
+          ) : dueItems.length === 0 ? (
+            <Empty
+              title="Төлбөргүй байна"
+              sub="Тээврийн хураамж, даатгал, торгууль одоогоор алга. Шинэ хугацаа ойртвол энд харагдана."
+            />
+          ) : (
+            dueItems.map((d) => (
+              <DueRow
+                key={d.id}
+                due={d}
+                pending={pendingPayIds.has(d.id) || (payMu.isPending && payMu.variables?.dueId === d.id)}
+                onPay={() => onPay(d)}
+              />
+            ))
+          )}
         </View>
 
         <Glass radius="md" style={{ marginTop: 14 }}>
@@ -221,6 +263,92 @@ export default function ServiceScreen() {
         )}
       </View>
     </Screen>
+  );
+}
+
+function DueRow({
+  due,
+  pending,
+  onPay,
+}: {
+  due: VehicleDueOut;
+  pending: boolean;
+  onPay: () => void;
+}) {
+  const theme = useTheme();
+  const isPaid = due.status === 'paid';
+  const isOverdue = due.status === 'overdue';
+  const isDue = due.status === 'due';
+  const showPayBtn = isDue || isOverdue;
+  const stripe = isPaid
+    ? theme.colors.success
+    : isOverdue
+      ? theme.colors.danger
+      : isDue
+        ? theme.colors.warn
+        : theme.colors.success;
+  const tint = isPaid
+    ? theme.colors.success
+    : isOverdue
+      ? theme.colors.danger
+      : isDue
+        ? theme.colors.warn
+        : theme.colors.success;
+
+  return (
+    <Glass
+      radius="md"
+      style={{ borderLeftWidth: 3, borderLeftColor: stripe }}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <View
+          style={[
+            styles.icoBox,
+            {
+              backgroundColor: isPaid
+                ? 'rgba(94,226,160,0.16)'
+                : isOverdue
+                  ? 'rgba(255,123,156,0.18)'
+                  : 'rgba(255,179,71,0.18)',
+            },
+          ]}
+        >
+          <Feather name={DUE_ICONS[due.kind]} size={18} color={tint} />
+        </View>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text variant="body" weight="600">
+            {DUE_LABELS[due.kind]}
+          </Text>
+          <Text variant="caption" tone="tertiary" style={{ marginTop: 2 }}>
+            {isPaid
+              ? due.paid_at
+                ? `Төлсөн ${dateOnly(due.paid_at)}`
+                : 'Төлсөн'
+              : due.due_date
+                ? `Хугацаа: ${dateOnly(due.due_date)}`
+                : 'Хугацаа тодорхойгүй'}
+          </Text>
+        </View>
+        <View style={{ alignItems: 'flex-end', gap: 6 }}>
+          <Text variant="num" weight="700">
+            {mnt(due.amount_mnt)}
+          </Text>
+          {isPaid ? (
+            <Text variant="caption" tone="success" weight="600">
+              Төлөгдсөн
+            </Text>
+          ) : showPayBtn ? (
+            <Button
+              size="sm"
+              label={pending ? 'Хүлээж байна…' : 'Төлөх'}
+              onPress={onPay}
+              loading={pending}
+              disabled={pending}
+            />
+          ) : null}
+        </View>
+      </View>
+    </Glass>
   );
 }
 

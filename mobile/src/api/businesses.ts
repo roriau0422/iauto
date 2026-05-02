@@ -12,6 +12,7 @@ type VehicleBrandCoverageListOut =
   components['schemas']['VehicleBrandCoverageListOut'];
 type VehicleBrandCoverageReplaceIn =
   components['schemas']['VehicleBrandCoverageReplaceIn'];
+type BusinessAnalyticsOut = components['schemas']['BusinessAnalyticsOut'];
 
 export async function createBusiness(body: BusinessCreateIn): Promise<BusinessOut> {
   const r = await apiClient.post<BusinessOut>('/v1/businesses', body);
@@ -41,6 +42,21 @@ export async function replaceMyBrandCoverage(
   const r = await apiClient.put<VehicleBrandCoverageListOut>(
     '/v1/businesses/me/vehicle-brands',
     body,
+  );
+  return r.data;
+}
+
+/**
+ * Trailing-window sales analytics for the caller's business. Backend
+ * fills zero-sales days in the daily bucket so the sparkline renders
+ * contiguous bars without client-side gap-filling.
+ */
+export async function getAnalytics(
+  windowDays?: number,
+): Promise<BusinessAnalyticsOut> {
+  const r = await apiClient.get<BusinessAnalyticsOut>(
+    '/v1/businesses/me/analytics',
+    { params: windowDays != null ? { window_days: windowDays } : undefined },
   );
   return r.data;
 }

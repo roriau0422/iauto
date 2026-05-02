@@ -22,6 +22,8 @@ type VehicleServiceHistoryOut = components['schemas']['VehicleServiceHistoryOut'
 type VehicleServiceLogCreateIn = components['schemas']['VehicleServiceLogCreateIn'];
 type VehicleServiceLogOut = components['schemas']['VehicleServiceLogOut'];
 type MyCarListOut = components['schemas']['MyCarListOut'];
+type VehicleDueListOut = components['schemas']['VehicleDueListOut'];
+type VehicleDuePayOut = components['schemas']['VehicleDuePayOut'];
 
 export async function getLookupPlan(): Promise<LookupPlanOut> {
   const r = await apiClient.get<LookupPlanOut>('/v1/vehicles/lookup/plan');
@@ -78,5 +80,31 @@ export async function listVehicleInsurance(vehicleId: string): Promise<MyCarList
 
 export async function listVehicleFines(vehicleId: string): Promise<MyCarListOut> {
   const r = await apiClient.get<MyCarListOut>(`/v1/vehicles/${vehicleId}/fines`);
+  return r.data;
+}
+
+/**
+ * Listing of payable obligations (tax / insurance / fines) for a single
+ * vehicle. Backend returns `status` + `amount_mnt` + `due_date` per row.
+ */
+export async function listDues(vehicleId: string): Promise<VehicleDueListOut> {
+  const r = await apiClient.get<VehicleDueListOut>(`/v1/vehicles/${vehicleId}/dues`);
+  return r.data;
+}
+
+/**
+ * Kick off a QPay invoice for a single due. Idempotent per `due_id`:
+ * a second call returns the same payment intent + a re-fetched QR.
+ *
+ * The mobile flow opens the deeplink in the system browser and polls
+ * `listDues` for the due to flip to `paid`.
+ */
+export async function payDue(
+  vehicleId: string,
+  dueId: string,
+): Promise<VehicleDuePayOut> {
+  const r = await apiClient.post<VehicleDuePayOut>(
+    `/v1/vehicles/${vehicleId}/dues/${dueId}/pay`,
+  );
   return r.data;
 }

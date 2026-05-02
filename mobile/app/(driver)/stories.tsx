@@ -1,16 +1,37 @@
 /**
  * Stories feed — driver POV.
  *
- * Backend currently exposes only business-authored posts (decision in
- * the design file's "ОЙРЫН ҮЕД" / "Phase 2" annotation). We still show
- * the story rail with what we have plus the disclosure banner.
+ * Both driver- and business-authored posts ride the same feed; the
+ * backend stamps each row with `author_kind` + nullable `tenant_id`
+ * and we render a small "БИЗНЕС" chip on tenant rows. The composer
+ * at the top issues a `publishPost` call which the backend routes to
+ * the right `author_kind` based on the caller's user role — drivers
+ * get drafts published as personal posts, businesses get them
+ * published as tenant posts.
+ *
+ * Image attachments go through the standard presign/PUT/confirm flow
+ * via `uploadAsset()`. Multiple images are allowed (each becomes a
+ * `media_asset_ids[i]` on the post body).
  */
 
 import { Feather } from '@expo/vector-icons';
-import { useQuery } from '@tanstack/react-query';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import * as ImagePicker from 'expo-image-picker';
+import { useState } from 'react';
+import {
+  Alert,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
+} from 'react-native';
 
-import { getFeed } from '../../src/api/stories';
+import { uploadAsset } from '../../src/api/media';
+import { getFeed, publishPost } from '../../src/api/stories';
+import { useAuth } from '../../src/auth/store';
+import { Button } from '../../src/components/Button';
 import { Chip } from '../../src/components/Chip';
 import { Empty, Loading } from '../../src/components/Empty';
 import { Glass } from '../../src/components/Glass';
@@ -20,11 +41,86 @@ import { ScreenHeader } from '../../src/components/ScreenHeader';
 import { Text } from '../../src/components/Text';
 import { relativeMn } from '../../src/lib/format';
 import { useTheme } from '../../src/theme/ThemeProvider';
+import type { components } from '../../types/api';
+
+type StoryPostOut = components['schemas']['StoryPostOut'];
+
+type StagedImage = {
+  uri: string;
+  contentType: 'image/jpeg' | 'image/png' | 'image/webp';
+  byteSize: number;
+};
 
 export default function StoriesScreen() {
   const theme = useTheme();
+  const qc = useQueryClient();
+  const me = useAuth((s) => s.user);
   const feedQ = useQuery({ queryKey: ['stories', 'feed'], queryFn: () => getFeed({ limit: 20 }) });
-  const items = feedQ.data?.items ?? [];
+  const items = (feedQ.data?.items ?? []) as StoryPostOut[];
+
+  const [body, setBody] = useState('');
+  const [staged, setStaged] = useState<StagedImage[]>([]);
+  const [composerOpen, setComposerOpen] = useState(false);
+
+  const postMu = useMutation({
+    mutationFn: async (vars: { body: string; mediaIds: string[] }) => {
+      return publishPost({ body: vars.body, media_asset_ids: vars.mediaIds });
+    },
+    onSuccess: async () => {
+      setBody('');
+      setStaged([]);
+      setComposerOpen(false);
+      await qc.invalidateQueries({ queryKey: ['stories'] });
+    },
+    onError: () => {
+      Alert.alert('Алдаа', 'Нийтлэлийг илгээж чадсангүй. Дахин оролдоно уу.');
+    },
+  });
+
+  const onPickImage = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Зөвшөөрөл хэрэгтэй', 'Зураг сонгохын тулд галерейн эрх олгоно уу.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.85,
+      allowsMultipleSelection: false,
+      base64: false,
+    });
+    if (result.canceled || result.assets.length === 0) return;
+    const asset = result.assets[0];
+    const contentType = guessImageMime(asset.mimeType, asset.uri);
+    setStaged((prev) => [
+      ...prev,
+      {
+        uri: asset.uri,
+        contentType,
+        byteSize: asset.fileSize ?? estimateByteSize(asset.width, asset.height),
+      },
+    ]);
+  };
+
+  const onSend = async () => {
+    const text = body.trim();
+    if (!text && staged.length === 0) return;
+    try {
+      const mediaIds: string[] = [];
+      for (const img of staged) {
+        const asset = await uploadAsset({
+          uri: img.uri,
+          contentType: img.contentType,
+          byteSize: img.byteSize,
+          purpose: 'story',
+        });
+        mediaIds.push(asset.id);
+      }
+      postMu.mutate({ body: text, mediaIds });
+    } catch {
+      Alert.alert('Алдаа', 'Зураг хуулахад алдаа гарлаа.');
+    }
+  };
 
   return (
     <Screen scroll>
@@ -32,7 +128,7 @@ export default function StoriesScreen() {
         sub="МЭДЭЭНИЙ СУВАГ"
         title="Сошиал"
         right={
-          <IconButton onPress={() => null}>
+          <IconButton onPress={() => setComposerOpen((v) => !v)} active={composerOpen}>
             <Feather name="plus" size={18} color={theme.colors.text} />
           </IconButton>
         }
@@ -44,7 +140,7 @@ export default function StoriesScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ gap: 10, paddingVertical: 4 }}
         >
-          <View style={{ alignItems: 'center', width: 64 }}>
+          <Pressable onPress={() => setComposerOpen(true)} style={{ alignItems: 'center', width: 64 }}>
             <View
               style={[
                 styles.addRing,
@@ -56,14 +152,15 @@ export default function StoriesScreen() {
             <Text variant="caption" tone="tertiary" style={{ marginTop: 5 }}>
               Нэмэх
             </Text>
-          </View>
+          </Pressable>
           {items.slice(0, 8).map((p) => (
             <View key={p.id} style={{ alignItems: 'center', width: 64 }}>
               <View
                 style={[
                   styles.dot,
                   {
-                    backgroundColor: theme.colors.accent,
+                    backgroundColor:
+                      p.author_kind === 'business' ? theme.colors.accent2 : theme.colors.accent,
                     borderColor: theme.colors.bg1,
                   },
                 ]}
@@ -84,105 +181,182 @@ export default function StoriesScreen() {
           ))}
         </ScrollView>
 
-        <Glass
-          radius="md"
-          style={{
-            marginTop: 10,
-            backgroundColor: 'rgba(255,179,71,0.08)',
-            borderColor: 'rgba(255,179,71,0.22)',
-            borderWidth: 0.5,
-          }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <View
-              style={{
-                width: 24,
-                height: 24,
-                borderRadius: 6,
-                backgroundColor: 'rgba(255,179,71,0.2)',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Feather name="info" size={12} color={theme.colors.warn} />
-            </View>
-            <Text variant="caption" tone="secondary" style={{ flex: 1, lineHeight: 17 }}>
-              <Text variant="caption" weight="700" style={{ color: theme.colors.warn }}>
-                Phase 2 ·
-              </Text>{' '}
-              Жолоочдын нийтлэл удахгүй нээгдэнэ. Одоогоор бизнесүүдийн зар, мэдээллийг харна
-              уу.
+        {composerOpen ? (
+          <Glass radius="md" style={{ marginTop: 12 }}>
+            <Text variant="eyebrow" tone="tertiary">
+              ШИНЭ НИЙТЛЭЛ
             </Text>
-          </View>
-        </Glass>
+            <TextInput
+              value={body}
+              onChangeText={setBody}
+              placeholder="Юу шинэ юм бэ?"
+              placeholderTextColor={theme.colors.text3}
+              style={[
+                styles.composerInput,
+                { color: theme.colors.text, borderColor: theme.colors.stroke2 },
+              ]}
+              multiline
+            />
+            {staged.length > 0 ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: 8, paddingTop: 10 }}
+              >
+                {staged.map((s, i) => (
+                  <View key={`${s.uri}-${i}`} style={styles.thumbWrap}>
+                    <Image source={{ uri: s.uri }} style={styles.thumb} />
+                    <Pressable
+                      onPress={() => setStaged((prev) => prev.filter((_, j) => j !== i))}
+                      style={[styles.thumbX, { backgroundColor: theme.colors.danger }]}
+                    >
+                      <Feather name="x" size={12} color="#fff" />
+                    </Pressable>
+                  </View>
+                ))}
+              </ScrollView>
+            ) : null}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 }}>
+              <IconButton onPress={onPickImage} size={36}>
+                <Feather name="image" size={16} color={theme.colors.text2} />
+              </IconButton>
+              <View style={{ flex: 1 }} />
+              <Button
+                label="Илгээх"
+                size="sm"
+                onPress={onSend}
+                loading={postMu.isPending}
+                disabled={postMu.isPending || (!body.trim() && staged.length === 0)}
+              />
+            </View>
+          </Glass>
+        ) : null}
 
         {feedQ.isLoading ? (
           <Loading />
         ) : items.length === 0 ? (
           <Empty
             title="Шинэ нийтлэл алга"
-            sub="Бизнес түншүүд хямдрал, шинэ бараа, үйлчилгээний мэдээллээ үе үе нийтэлдэг."
+            sub="Анхны нийтлэлээ нэмж эхэл — эсвэл бизнесүүдийн зар, шинэ бараа удахгүй харагдана."
           />
         ) : (
           <View style={{ gap: 12, marginTop: 14 }}>
             {items.map((p) => (
-              <Glass key={p.id} radius="lg">
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <View style={[styles.feedAvatar, { backgroundColor: theme.colors.accent }]}>
-                    <Text variant="body" weight="700" tone="inverse">
-                      {p.body[0]?.toUpperCase() ?? 'i'}
-                    </Text>
-                  </View>
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                      <Text variant="body" weight="700">
-                        Бизнес
-                      </Text>
-                      <Feather name="shield" size={12} color={theme.colors.accent2} />
-                    </View>
-                    <Text variant="caption" tone="tertiary">
-                      {relativeMn(p.created_at)}
-                    </Text>
-                  </View>
-                  <Chip label="SPONSORED" tone="warn" />
-                </View>
-
-                <View style={[styles.feedHero, { backgroundColor: theme.colors.surface2 }]}>
-                  <Text variant="title" tone="primary" weight="700" style={{ color: '#fff' }}>
-                    {p.body.slice(0, 80)}
-                  </Text>
-                </View>
-
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 18,
-                    marginTop: 10,
-                  }}
-                >
-                  <View style={styles.actionPill}>
-                    <Feather name="heart" size={16} color={theme.colors.text2} />
-                    <Text variant="caption" weight="500" tone="secondary">
-                      {p.like_count}
-                    </Text>
-                  </View>
-                  <View style={styles.actionPill}>
-                    <Feather name="message-circle" size={16} color={theme.colors.text2} />
-                    <Text variant="caption" weight="500" tone="secondary">
-                      {p.comment_count}
-                    </Text>
-                  </View>
-                  <View style={{ flex: 1 }} />
-                  <Feather name="bookmark" size={16} color={theme.colors.text3} />
-                </View>
-              </Glass>
+              <FeedCard key={p.id} post={p} myUserId={me?.id ?? null} />
             ))}
           </View>
         )}
       </View>
     </Screen>
   );
+}
+
+function FeedCard({
+  post,
+  myUserId,
+}: {
+  post: StoryPostOut;
+  myUserId: string | null;
+}) {
+  const theme = useTheme();
+  const isBusiness = post.author_kind === 'business';
+  const isMine = myUserId != null && post.author_user_id === myUserId;
+
+  const headerName = isBusiness ? 'Бизнес түнш' : isMine ? 'Та' : 'Жолооч';
+
+  return (
+    <Glass radius="lg">
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <View
+          style={[
+            styles.feedAvatar,
+            {
+              backgroundColor: isBusiness ? theme.colors.accent2 : theme.colors.accent,
+            },
+          ]}
+        >
+          <Text variant="body" weight="700" tone="inverse">
+            {(headerName[0] ?? 'i').toUpperCase()}
+          </Text>
+        </View>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+            <Text variant="body" weight="700">
+              {headerName}
+            </Text>
+            {isBusiness ? (
+              <Chip label="БИЗНЕС" tone="accent" />
+            ) : (
+              <Feather name="user" size={12} color={theme.colors.text3} />
+            )}
+          </View>
+          <Text variant="caption" tone="tertiary">
+            {relativeMn(post.created_at)}
+          </Text>
+        </View>
+        {/* Sponsored chip is reserved for ad placements; story posts never set it. */}
+      </View>
+
+      <View style={[styles.feedHero, { backgroundColor: theme.colors.surface2 }]}>
+        <Text variant="title" tone="primary" weight="700" style={{ color: '#fff' }}>
+          {post.body.slice(0, 80)}
+        </Text>
+      </View>
+
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 18,
+          marginTop: 10,
+        }}
+      >
+        <View style={styles.actionPill}>
+          <Feather name="heart" size={16} color={theme.colors.text2} />
+          <Text variant="caption" weight="500" tone="secondary">
+            {post.like_count}
+          </Text>
+        </View>
+        <View style={styles.actionPill}>
+          <Feather name="message-circle" size={16} color={theme.colors.text2} />
+          <Text variant="caption" weight="500" tone="secondary">
+            {post.comment_count}
+          </Text>
+        </View>
+        <View style={{ flex: 1 }} />
+        <Feather name="bookmark" size={16} color={theme.colors.text3} />
+      </View>
+    </Glass>
+  );
+}
+
+function guessImageMime(
+  declared: string | null | undefined,
+  uri: string,
+): 'image/jpeg' | 'image/png' | 'image/webp' {
+  const lower = (declared ?? '').toLowerCase();
+  if (lower === 'image/png') return 'image/png';
+  if (lower === 'image/webp') return 'image/webp';
+  if (lower === 'image/jpeg' || lower === 'image/jpg') return 'image/jpeg';
+  // Fallback to extension sniffing — `mimeType` isn't always populated
+  // by `expo-image-picker`, and the backend's MediaUploadCreateIn has
+  // a closed enum we have to satisfy.
+  const ext = uri.split('?')[0].split('.').pop()?.toLowerCase();
+  if (ext === 'png') return 'image/png';
+  if (ext === 'webp') return 'image/webp';
+  return 'image/jpeg';
+}
+
+/**
+ * Best-effort lower-bound for image byte sizes when `expo-image-picker`
+ * does not return a `fileSize`. Uses the pixel area as a proxy at a
+ * conservative byte-per-pixel rate so the presign endpoint accepts
+ * the upload — the actual PUT carries the true size in the
+ * Content-Length header anyway.
+ */
+function estimateByteSize(width: number | undefined, height: number | undefined): number {
+  if (width == null || height == null || width <= 0 || height <= 0) return 256 * 1024;
+  return Math.max(64 * 1024, Math.floor(width * height * 0.5));
 }
 
 const styles = StyleSheet.create({
@@ -218,4 +392,27 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   actionPill: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  composerInput: {
+    minHeight: 64,
+    maxHeight: 180,
+    marginTop: 8,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  thumbWrap: { position: 'relative' },
+  thumb: { width: 80, height: 80, borderRadius: 10 },
+  thumbX: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

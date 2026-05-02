@@ -27,6 +27,7 @@ import { Sparkline } from '../../src/components/Sparkline';
 import { Text } from '../../src/components/Text';
 import { VehicleCard } from '../../src/components/VehicleCard';
 import { relativeMn } from '../../src/lib/format';
+import { notificationLabel } from '../../src/lib/notificationCopy';
 import { useTheme } from '../../src/theme/ThemeProvider';
 
 export default function HomeScreen() {
@@ -124,10 +125,7 @@ export default function HomeScreen() {
                 Анхааруулга
               </Text>
               <Text variant="body" weight="600" numberOfLines={1}>
-                {firstNotif.kind === 'reservation_confirmed' ||
-                firstNotif.kind === 'reservation_completed'
-                  ? 'Захиалгын мэдэгдэл'
-                  : firstNotif.kind}
+                {notificationLabel(firstNotif.kind)}
               </Text>
               <Text variant="caption" tone="tertiary" numberOfLines={1}>
                 {relativeMn(firstNotif.created_at)} · {firstNotif.body_text}

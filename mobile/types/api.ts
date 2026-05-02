@@ -415,6 +415,23 @@ export interface paths {
         patch: operations["update_my_business_v1_businesses_me_patch"];
         trace?: never;
     };
+    "/v1/businesses/me/analytics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Trailing-window sales KPIs for the caller's business */
+        get: operations["get_analytics_v1_businesses_me_analytics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/businesses/me/members": {
         parameters: {
             query?: never;
@@ -1039,7 +1056,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Public timeline of business posts, newest first */
+        /** Public timeline of all posts (driver + business), newest first */
         get: operations["get_feed_v1_story_feed_get"];
         put?: never;
         post?: never;
@@ -1056,9 +1073,20 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Public list of all posts (driver + business), newest first
+         * @description Same payload as `GET /story/feed`. Mobile clients use this path
+         *     name; the older `/story/feed` is kept as an alias.
+         */
+        get: operations["list_posts_v1_story_posts_get"];
         put?: never;
-        /** Publish a story post (any business member) */
+        /**
+         * Publish a story post (driver = personal; business member = tenant post)
+         * @description Driver callers publish a personal post (no `tenant_id`).
+         *
+         *     Business callers — anyone whose `User.role` is `business` and who has
+         *     at least one business membership — publish on behalf of that tenant.
+         */
         post: operations["publish_post_v1_story_posts_post"];
         delete?: never;
         options?: never;
@@ -1218,6 +1246,48 @@ export interface paths {
         post?: never;
         /** Unregister a vehicle (owner-only, leaves the vehicle row intact) */
         delete: operations["delete_vehicle_v1_vehicles__vehicle_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/vehicles/{vehicle_id}/dues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List a vehicle's payable obligations (owner only) */
+        get: operations["list_vehicle_dues_v1_vehicles__vehicle_id__dues_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/vehicles/{vehicle_id}/dues/{due_id}/pay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Kick off a QPay invoice for a tax / insurance / fines due
+         * @description Mobile drives the QPay handoff with this endpoint.
+         *
+         *     Idempotent per `due_id`: a second call returns the existing intent +
+         *     a re-fetched QR is the mobile's job (the QPay invoice id is on the
+         *     response). Once the due flips to `paid` the endpoint refuses further
+         *     pay attempts.
+         */
+        post: operations["pay_vehicle_due_v1_vehicles__vehicle_id__dues__due_id__pay_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1416,6 +1486,43 @@ export interface components {
          */
         AiSessionStatus: "active" | "closed";
         /**
+         * AnalyticsDailyOut
+         * @description One bucket in the trailing-window sales sparkline.
+         *
+         *     `date` is the UTC calendar date the bucket covers (server-side
+         *     `date_trunc('day', sales.created_at)`). Days inside the window with
+         *     zero sales are still emitted so the mobile chart renders contiguous
+         *     bars without client-side gap-filling.
+         */
+        AnalyticsDailyOut: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Revenue Mnt */
+            revenue_mnt: number;
+            /** Sales Count */
+            sales_count: number;
+        };
+        /**
+         * AnalyticsTopSkuOut
+         * @description One row in the top-N SKUs leaderboard.
+         */
+        AnalyticsTopSkuOut: {
+            /** Display Name */
+            display_name: string;
+            /** Sku Code */
+            sku_code: string;
+            /**
+             * Sku Id
+             * Format: uuid
+             */
+            sku_id: string;
+            /** Units Sold */
+            units_sold: number;
+        };
+        /**
          * AssistantReplyOut
          * @description Wraps the assistant's reply + spend telemetry for the caller.
          */
@@ -1428,6 +1535,19 @@ export interface components {
             /** Prompt Tokens */
             prompt_tokens: number;
             user_message: components["schemas"]["MessageOut"];
+        };
+        /** BusinessAnalyticsOut */
+        BusinessAnalyticsOut: {
+            /** Daily */
+            daily: components["schemas"]["AnalyticsDailyOut"][];
+            /** Top Skus */
+            top_skus: components["schemas"]["AnalyticsTopSkuOut"][];
+            /** Total Revenue Mnt */
+            total_revenue_mnt: number;
+            /** Total Sales */
+            total_sales: number;
+            /** Window Days */
+            window_days: number;
         };
         /** BusinessCreateIn */
         BusinessCreateIn: {
@@ -2954,6 +3074,17 @@ export interface components {
              */
             tenant_id: string;
         };
+        /**
+         * StoryAuthorKind
+         * @description Whether a story post was published by a driver or a business.
+         *
+         *     Drivers post personal updates to the public feed; businesses post on
+         *     behalf of their tenant. The `author_kind = 'business'` ↔ `tenant_id IS
+         *     NOT NULL` invariant is enforced in the DB by a CHECK constraint
+         *     declared in migration 0021.
+         * @enum {string}
+         */
+        StoryAuthorKind: "driver" | "business";
         /** StoryCommentCreateIn */
         StoryCommentCreateIn: {
             /** Body */
@@ -3040,6 +3171,7 @@ export interface components {
         };
         /** StoryPostOut */
         StoryPostOut: {
+            author_kind: components["schemas"]["StoryAuthorKind"];
             /**
              * Author User Id
              * Format: uuid
@@ -3063,11 +3195,8 @@ export interface components {
             like_count: number;
             /** Media Asset Ids */
             media_asset_ids: string[];
-            /**
-             * Tenant Id
-             * Format: uuid
-             */
-            tenant_id: string;
+            /** Tenant Id */
+            tenant_id: string | null;
             /**
              * Updated At
              * Format: date-time
@@ -3328,6 +3457,92 @@ export interface components {
              */
             ok: true;
         };
+        /**
+         * VehicleDueKind
+         * @description Categories of vehicle obligations payable through the My Car screen.
+         * @enum {string}
+         */
+        VehicleDueKind: "tax" | "insurance" | "fines";
+        /** VehicleDueListOut */
+        VehicleDueListOut: {
+            /** Items */
+            items: components["schemas"]["VehicleDueOut"][];
+            /**
+             * Vehicle Id
+             * Format: uuid
+             */
+            vehicle_id: string;
+        };
+        /** VehicleDueOut */
+        VehicleDueOut: {
+            /** Amount Mnt */
+            amount_mnt: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Due Date */
+            due_date: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            kind: components["schemas"]["VehicleDueKind"];
+            /** Paid At */
+            paid_at: string | null;
+            /** Payment Intent Id */
+            payment_intent_id: string | null;
+            status: components["schemas"]["VehicleDueStatus"];
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Vehicle Id
+             * Format: uuid
+             */
+            vehicle_id: string;
+        };
+        /**
+         * VehicleDuePayOut
+         * @description Response from `POST /vehicles/{vehicle_id}/dues/{due_id}/pay`.
+         *
+         *     Mirrors `PaymentIntentCreatedOut` shape (the existing sale-payment
+         *     response) so the mobile screens can share invoice rendering code.
+         */
+        VehicleDuePayOut: {
+            /** Deeplink */
+            deeplink: string | null;
+            due: components["schemas"]["VehicleDueOut"];
+            /**
+             * Payment Intent Id
+             * Format: uuid
+             */
+            payment_intent_id: string;
+            /** Qr Image Base64 */
+            qr_image_base64: string | null;
+            /** Qr Text */
+            qr_text: string | null;
+            /** Urls */
+            urls: {
+                [key: string]: unknown;
+            }[] | null;
+        };
+        /**
+         * VehicleDueStatus
+         * @description Lifecycle of a single vehicle due.
+         *
+         *     - `due`     — outstanding, on or before the due_date.
+         *     - `ok`      — confirmed not owed (e.g. authority feed says paid via
+         *                   another channel). Reserved for future ingestion.
+         *     - `overdue` — past `due_date`, not yet paid.
+         *     - `paid`    — settled via QPay through iAuto.
+         * @enum {string}
+         */
+        VehicleDueStatus: "due" | "ok" | "overdue" | "paid";
         /** VehicleListOut */
         VehicleListOut: {
             /** Items */
@@ -4604,6 +4819,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BusinessOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_analytics_v1_businesses_me_analytics_get: {
+        parameters: {
+            query?: {
+                window_days?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BusinessAnalyticsOut"];
                 };
             };
             /** @description Validation Error */
@@ -6003,6 +6251,38 @@ export interface operations {
             };
         };
     };
+    list_posts_v1_story_posts_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                before_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoryFeedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     publish_post_v1_story_posts_post: {
         parameters: {
             query?: never;
@@ -6435,6 +6715,73 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VehicleDeleteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_vehicle_dues_v1_vehicles__vehicle_id__dues_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                vehicle_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleDueListOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pay_vehicle_due_v1_vehicles__vehicle_id__dues__due_id__pay_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                vehicle_id: string;
+                due_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleDuePayOut"];
                 };
             };
             /** @description Validation Error */
