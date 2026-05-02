@@ -51,6 +51,103 @@
         "title": "BusinessCreateIn",
         "type": "object"
       },
+      "BusinessMemberAddIn": {
+        "description": "Body for `POST /businesses/me/members`.\n\nThe owner identifies a user by phone (the same identifier they use\nfor OTP login). `role` is constrained to manager/staff — owner is\nset during business creation and cannot be added or changed via\nthis endpoint.",
+        "properties": {
+          "role": {
+            "enum": [
+              "manager",
+              "staff"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "user_phone": {
+            "title": "User Phone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_phone",
+          "role"
+        ],
+        "title": "BusinessMemberAddIn",
+        "type": "object"
+      },
+      "BusinessMemberDeleteOut": {
+        "properties": {
+          "ok": {
+            "const": true,
+            "default": true,
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "title": "BusinessMemberDeleteOut",
+        "type": "object"
+      },
+      "BusinessMemberListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/BusinessMemberOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "BusinessMemberListOut",
+        "type": "object"
+      },
+      "BusinessMemberOut": {
+        "properties": {
+          "business_id": {
+            "format": "uuid",
+            "title": "Business Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/BusinessMemberRole"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "business_id",
+          "user_id",
+          "role",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "BusinessMemberOut",
+        "type": "object"
+      },
+      "BusinessMemberRole": {
+        "description": "Access role for a user inside a business.\n\n- `owner`   — original creator; cannot be removed; can invite/remove others.\n- `manager` — can manage SKUs, members below them, and warehouse settings.\n- `staff`   — can record stock movements and use the chat surface.\n\nThe phase-1 1:1 invariant on `businesses.owner_id` survives — that\ncolumn is still the canonical default — but `business_members` is\nthe source of truth for access checks from session 10 onward.",
+        "enum": [
+          "owner",
+          "manager",
+          "staff"
+        ],
+        "title": "BusinessMemberRole",
+        "type": "string"
+      },
       "BusinessOut": {
         "properties": {
           "address": {
@@ -1921,6 +2018,406 @@
         "title": "SaleOut",
         "type": "object"
       },
+      "SkuCreateIn": {
+        "properties": {
+          "condition": {
+            "$ref": "#/components/schemas/QuoteCondition"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "display_name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "low_stock_threshold": {
+            "anyOf": [
+              {
+                "maximum": 1000000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Low Stock Threshold"
+          },
+          "sku_code": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Sku Code",
+            "type": "string"
+          },
+          "unit_price_mnt": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 999999999.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit Price Mnt"
+          },
+          "vehicle_brand_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vehicle Brand Id"
+          },
+          "vehicle_model_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vehicle Model Id"
+          }
+        },
+        "required": [
+          "sku_code",
+          "display_name",
+          "condition"
+        ],
+        "title": "SkuCreateIn",
+        "type": "object"
+      },
+      "SkuDeleteOut": {
+        "properties": {
+          "ok": {
+            "const": true,
+            "default": true,
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "title": "SkuDeleteOut",
+        "type": "object"
+      },
+      "SkuDetailOut": {
+        "description": "Detail view also reports the running `on_hand`.",
+        "properties": {
+          "condition": {
+            "$ref": "#/components/schemas/QuoteCondition"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "low_stock_threshold": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Low Stock Threshold"
+          },
+          "on_hand": {
+            "title": "On Hand",
+            "type": "integer"
+          },
+          "sku_code": {
+            "title": "Sku Code",
+            "type": "string"
+          },
+          "tenant_id": {
+            "format": "uuid",
+            "title": "Tenant Id",
+            "type": "string"
+          },
+          "unit_price_mnt": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit Price Mnt"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "vehicle_brand_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vehicle Brand Id"
+          },
+          "vehicle_model_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vehicle Model Id"
+          }
+        },
+        "required": [
+          "id",
+          "tenant_id",
+          "sku_code",
+          "display_name",
+          "description",
+          "condition",
+          "vehicle_brand_id",
+          "vehicle_model_id",
+          "unit_price_mnt",
+          "low_stock_threshold",
+          "created_at",
+          "updated_at",
+          "on_hand"
+        ],
+        "title": "SkuDetailOut",
+        "type": "object"
+      },
+      "SkuListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SkuOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "SkuListOut",
+        "type": "object"
+      },
+      "SkuOut": {
+        "properties": {
+          "condition": {
+            "$ref": "#/components/schemas/QuoteCondition"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "low_stock_threshold": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Low Stock Threshold"
+          },
+          "sku_code": {
+            "title": "Sku Code",
+            "type": "string"
+          },
+          "tenant_id": {
+            "format": "uuid",
+            "title": "Tenant Id",
+            "type": "string"
+          },
+          "unit_price_mnt": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit Price Mnt"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "vehicle_brand_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vehicle Brand Id"
+          },
+          "vehicle_model_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vehicle Model Id"
+          }
+        },
+        "required": [
+          "id",
+          "tenant_id",
+          "sku_code",
+          "display_name",
+          "description",
+          "condition",
+          "vehicle_brand_id",
+          "vehicle_model_id",
+          "unit_price_mnt",
+          "low_stock_threshold",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SkuOut",
+        "type": "object"
+      },
+      "SkuUpdateIn": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "low_stock_threshold": {
+            "anyOf": [
+              {
+                "maximum": 1000000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Low Stock Threshold"
+          },
+          "unit_price_mnt": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 999999999.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit Price Mnt"
+          }
+        },
+        "title": "SkuUpdateIn",
+        "type": "object"
+      },
       "SteeringSide": {
         "description": "Steering-wheel / drive-side layout of a physical car.\n\nMongolia has a mixed fleet: Japanese imports are overwhelmingly RHD\n(steering on the right), while Korean / German / US / Chinese imports\nare LHD. Business coverage tables (session 5) use this as a filter so\na shop stocking LHD Tiguan parts doesn't get searches for RHD Prii.\n\nMapping from the XYP `wheelPosition` field:\n    \"Зүүн\"  (Mongolian for \"left\")  → LHD\n    \"Баруун\" (Mongolian for \"right\") → RHD",
         "enum": [
@@ -1929,6 +2426,161 @@
         ],
         "title": "SteeringSide",
         "type": "string"
+      },
+      "StockMovementCreateIn": {
+        "properties": {
+          "direction": {
+            "default": "up",
+            "enum": [
+              "up",
+              "down"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/WarehouseMovementKind"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "quantity": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 1000000.0,
+            "title": "Quantity",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "quantity"
+        ],
+        "title": "StockMovementCreateIn",
+        "type": "object"
+      },
+      "StockMovementCreatedOut": {
+        "properties": {
+          "movement": {
+            "$ref": "#/components/schemas/StockMovementOut"
+          },
+          "on_hand_after": {
+            "title": "On Hand After",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "movement",
+          "on_hand_after"
+        ],
+        "title": "StockMovementCreatedOut",
+        "type": "object"
+      },
+      "StockMovementListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/StockMovementOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "StockMovementListOut",
+        "type": "object"
+      },
+      "StockMovementOut": {
+        "properties": {
+          "actor_user_id": {
+            "format": "uuid",
+            "title": "Actor User Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/WarehouseMovementKind"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "sale_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sale Id"
+          },
+          "signed_quantity": {
+            "title": "Signed Quantity",
+            "type": "integer"
+          },
+          "sku_id": {
+            "format": "uuid",
+            "title": "Sku Id",
+            "type": "string"
+          },
+          "tenant_id": {
+            "format": "uuid",
+            "title": "Tenant Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "sku_id",
+          "tenant_id",
+          "kind",
+          "quantity",
+          "signed_quantity",
+          "note",
+          "actor_user_id",
+          "sale_id",
+          "created_at"
+        ],
+        "title": "StockMovementOut",
+        "type": "object"
       },
       "TokenPairOut": {
         "properties": {
@@ -2843,6 +3495,16 @@
         "title": "VerificationSource",
         "type": "string"
       },
+      "WarehouseMovementKind": {
+        "description": "Why a stock movement was recorded.\n\n- `receive` — new inventory arrived. Always positive in `signed_quantity`.\n- `issue`   — inventory left (sale, internal use). Always negative.\n- `adjust`  — physical recount. Either sign; stocktake uses this.",
+        "enum": [
+          "receive",
+          "issue",
+          "adjust"
+        ],
+        "title": "WarehouseMovementKind",
+        "type": "string"
+      },
       "XypPayloadIn": {
         "additionalProperties": true,
         "description": "Raw XYP response the client captured on a successful on-device lookup.\n\nThe client MUST pass this through untouched so we can store it verbatim\nin `vehicles.raw_xyp` for later auditing. Individual fields below are\nparsed from this payload during registration.\n\nField names match smartcar.mn's real wire format — camelCase upstream,\nwhich is why each line ignores `N815` (non-lowercase variable names).",
@@ -3313,6 +3975,171 @@
           }
         },
         "summary": "Partially update the authenticated owner's business profile",
+        "tags": [
+          "businesses"
+        ]
+      }
+    },
+    "/v1/businesses/me/members": {
+      "get": {
+        "operationId": "list_members_v1_businesses_me_members_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BusinessMemberListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List members of the caller's business",
+        "tags": [
+          "businesses"
+        ]
+      },
+      "post": {
+        "operationId": "add_member_v1_businesses_me_members_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BusinessMemberAddIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BusinessMemberOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add a manager / staff member to the caller's business (owner only)",
+        "tags": [
+          "businesses"
+        ]
+      }
+    },
+    "/v1/businesses/me/members/{user_id}": {
+      "delete": {
+        "operationId": "remove_member_v1_businesses_me_members__user_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BusinessMemberDeleteOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove a member from the caller's business (owner only)",
         "tags": [
           "businesses"
         ]
@@ -6259,6 +7086,484 @@
         "summary": "Vehicle tax obligations placeholder (real data source TBD)",
         "tags": [
           "vehicles"
+        ]
+      }
+    },
+    "/v1/warehouse/skus": {
+      "get": {
+        "operationId": "list_skus_v1_warehouse_skus_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkuListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List SKUs in the caller's business catalog",
+        "tags": [
+          "warehouse"
+        ]
+      },
+      "post": {
+        "operationId": "create_sku_v1_warehouse_skus_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkuCreateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkuOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create a SKU (owner / manager only)",
+        "tags": [
+          "warehouse"
+        ]
+      }
+    },
+    "/v1/warehouse/skus/{sku_id}": {
+      "delete": {
+        "operationId": "delete_sku_v1_warehouse_skus__sku_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sku_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Sku Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkuDeleteOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete a SKU (owner only; on_hand must be zero)",
+        "tags": [
+          "warehouse"
+        ]
+      },
+      "get": {
+        "operationId": "get_sku_v1_warehouse_skus__sku_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sku_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Sku Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkuDetailOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read a SKU with current on_hand",
+        "tags": [
+          "warehouse"
+        ]
+      },
+      "patch": {
+        "operationId": "update_sku_v1_warehouse_skus__sku_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sku_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Sku Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkuUpdateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SkuOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Patch a SKU (owner / manager only)",
+        "tags": [
+          "warehouse"
+        ]
+      }
+    },
+    "/v1/warehouse/skus/{sku_id}/movements": {
+      "get": {
+        "operationId": "list_movements_v1_warehouse_skus__sku_id__movements_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sku_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Sku Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockMovementListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List stock movements for a SKU, newest first",
+        "tags": [
+          "warehouse"
+        ]
+      },
+      "post": {
+        "operationId": "record_movement_v1_warehouse_skus__sku_id__movements_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sku_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Sku Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockMovementCreateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockMovementCreatedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record a stock movement against a SKU (any member)",
+        "tags": [
+          "warehouse"
         ]
       }
     }

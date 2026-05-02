@@ -7,7 +7,7 @@ table before autogenerate runs. Adding a new model? Import it here.
 from __future__ import annotations
 
 # -- businesses --------------------------------------------------------------
-from app.businesses.models import Business, BusinessVehicleBrand
+from app.businesses.models import Business, BusinessMember, BusinessVehicleBrand
 
 # -- catalog -----------------------------------------------------------------
 from app.catalog.models import VehicleBrand, VehicleCountry, VehicleModel
@@ -48,8 +48,12 @@ from app.vehicles.models import (
     VehicleServiceLog,
 )
 
+# -- warehouse ---------------------------------------------------------------
+from app.warehouse.models import WarehouseSku, WarehouseStockMovement
+
 __all__: list[str] = [
     "Business",
+    "BusinessMember",
     "BusinessVehicleBrand",
     "ChatMessage",
     "ChatThread",
@@ -75,4 +79,6 @@ __all__: list[str] = [
     "VehicleModel",
     "VehicleOwnership",
     "VehicleServiceLog",
+    "WarehouseSku",
+    "WarehouseStockMovement",
 ]

@@ -17,6 +17,7 @@ from app.media.router import router as media_router
 from app.notifications.router import router as notifications_router
 from app.payments.router import router as payments_router
 from app.vehicles.router import router as vehicles_router
+from app.warehouse.router import router as warehouse_router
 
 api_router = APIRouter(prefix="/v1")
 api_router.include_router(health.router)
@@ -29,5 +30,6 @@ api_router.include_router(media_router)
 api_router.include_router(notifications_router)
 api_router.include_router(payments_router)
 api_router.include_router(vehicles_router)
+api_router.include_router(warehouse_router)
 
 __all__ = ["api_router"]

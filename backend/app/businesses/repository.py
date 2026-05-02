@@ -7,7 +7,12 @@ import uuid
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.businesses.models import Business, BusinessVehicleBrand
+from app.businesses.models import (
+    Business,
+    BusinessMember,
+    BusinessMemberRole,
+    BusinessVehicleBrand,
+)
 from app.catalog.models import VehicleBrand
 from app.vehicles.models import SteeringSide
 
@@ -108,3 +113,61 @@ class BusinessVehicleBrandRepository:
         stmt = select(VehicleBrand.id).where(VehicleBrand.id.in_(brand_ids))
         result = await self.session.execute(stmt)
         return set(result.scalars())
+
+
+class BusinessMemberRepository:
+    """Read/write the (business_id, user_id, role) pivot.
+
+    Idempotent upsert lets the businesses service treat "ensure the owner
+    is a member" the same as "add a manager" without branching.
+    """
+
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    async def get(self, business_id: uuid.UUID, user_id: uuid.UUID) -> BusinessMember | None:
+        return await self.session.get(BusinessMember, (business_id, user_id))
+
+    async def list_for_business(self, business_id: uuid.UUID) -> list[BusinessMember]:
+        stmt = (
+            select(BusinessMember)
+            .where(BusinessMember.business_id == business_id)
+            .order_by(BusinessMember.created_at)
+        )
+        return list((await self.session.execute(stmt)).scalars())
+
+    async def list_for_user(self, user_id: uuid.UUID) -> list[BusinessMember]:
+        stmt = select(BusinessMember).where(BusinessMember.user_id == user_id)
+        return list((await self.session.execute(stmt)).scalars())
+
+    async def upsert(
+        self,
+        *,
+        business_id: uuid.UUID,
+        user_id: uuid.UUID,
+        role: BusinessMemberRole,
+    ) -> BusinessMember:
+        existing = await self.get(business_id, user_id)
+        if existing is not None:
+            existing.role = role
+            await self.session.flush()
+            return existing
+        member = BusinessMember(business_id=business_id, user_id=user_id, role=role)
+        self.session.add(member)
+        await self.session.flush()
+        return member
+
+    async def delete(self, *, business_id: uuid.UUID, user_id: uuid.UUID) -> int:
+        # `Result.rowcount` is on `CursorResult`, not `Result`. Cast keeps
+        # the typed surface honest.
+        from sqlalchemy.engine import CursorResult
+
+        raw = await self.session.execute(
+            delete(BusinessMember).where(
+                BusinessMember.business_id == business_id,
+                BusinessMember.user_id == user_id,
+            )
+        )
+        await self.session.flush()
+        rowcount = raw.rowcount if isinstance(raw, CursorResult) else 0
+        return rowcount or 0

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from enum import StrEnum
 
 from sqlalchemy import (
     DateTime,
@@ -21,6 +22,23 @@ from app.identity.models import User
 from app.platform.base import Base, Timestamped, UuidPrimaryKey
 from app.platform.crypto import get_cipher, get_search_index
 from app.vehicles.models import SteeringSide
+
+
+class BusinessMemberRole(StrEnum):
+    """Access role for a user inside a business.
+
+    - `owner`   — original creator; cannot be removed; can invite/remove others.
+    - `manager` — can manage SKUs, members below them, and warehouse settings.
+    - `staff`   — can record stock movements and use the chat surface.
+
+    The phase-1 1:1 invariant on `businesses.owner_id` survives — that
+    column is still the canonical default — but `business_members` is
+    the source of truth for access checks from session 10 onward.
+    """
+
+    owner = "owner"
+    manager = "manager"
+    staff = "staff"
 
 
 class Business(UuidPrimaryKey, Timestamped, Base):
@@ -71,6 +89,44 @@ class Business(UuidPrimaryKey, Timestamped, Base):
         normalized = normalize_phone(value)
         self.contact_phone_cipher = get_cipher().encrypt(normalized)
         self.contact_phone_search = get_search_index().compute(normalized)
+
+
+class BusinessMember(Base):
+    """Pivot: which users have access to which businesses, with what role.
+
+    Composite PK on `(business_id, user_id)` mirrors `vehicle_ownerships`.
+    Both FKs CASCADE so removing a business or a user sweeps the pivot
+    cleanly.
+    """
+
+    __tablename__ = "business_members"
+
+    business_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("businesses.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        primary_key=True,
+        index=True,
+    )
+    role: Mapped[BusinessMemberRole] = mapped_column(
+        SAEnum(BusinessMemberRole, name="business_member_role", native_enum=True),
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
 
 
 class BusinessVehicleBrand(Base):

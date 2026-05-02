@@ -98,6 +98,50 @@ async def on_review_submitted(event: DomainEvent, session: AsyncSession) -> None
     )
 
 
+async def on_stock_moved(event: DomainEvent, session: AsyncSession) -> None:
+    """Fire a `warehouse_low_stock` push if `on_hand_after` crossed the threshold.
+
+    Recipient is every member of the tenant business — we look up the
+    membership pivot and dispatch one row per recipient. Only fires when
+    `low_stock_threshold` is set on the SKU and the post-movement balance
+    is at or below it.
+    """
+    payload = event.model_dump(mode="json")
+    on_hand_after = payload.get("on_hand_after")
+    sku_id = _to_uuid(payload.get("sku_id"))
+    tenant_id = _to_uuid(payload.get("tenant_id"))
+    if not isinstance(on_hand_after, int) or sku_id is None or tenant_id is None:
+        return
+    from app.warehouse.repository import WarehouseSkuRepository
+
+    sku = await WarehouseSkuRepository(session).get_by_id(tenant_id=tenant_id, sku_id=sku_id)
+    if sku is None or sku.low_stock_threshold is None:
+        return
+    if on_hand_after > sku.low_stock_threshold:
+        return
+
+    from app.businesses.repository import BusinessMemberRepository
+
+    members = await BusinessMemberRepository(session).list_for_business(tenant_id)
+    if not members:
+        return
+    service = _build_service(session)
+    for member in members:
+        await service.dispatch(
+            user_id=member.user_id,
+            kind="warehouse_low_stock",
+            body_text=(
+                f"Low stock: '{sku.display_name}' ({sku.sku_code}) — {on_hand_after} on hand."
+            ),
+            payload={
+                "sku_id": str(sku.id),
+                "sku_code": sku.sku_code,
+                "on_hand_after": on_hand_after,
+                "threshold": sku.low_stock_threshold,
+            },
+        )
+
+
 async def on_payment_settled(event: DomainEvent, session: AsyncSession) -> None:
     payload = event.model_dump(mode="json")
     # The driver is the payer; we want to ack that the payment landed.
@@ -128,3 +172,4 @@ def register() -> None:
     register_handler("marketplace.sale_completed", on_sale_completed)
     register_handler("marketplace.review_submitted", on_review_submitted)
     register_handler("payments.payment_settled", on_payment_settled)
+    register_handler("warehouse.stock_moved", on_stock_moved)

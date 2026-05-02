@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import NamedTuple, Self
+from typing import Literal, NamedTuple, Self
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.businesses.models import BusinessMemberRole
 from app.identity.schemas import normalize_phone
 from app.vehicles.models import SteeringSide
 
@@ -158,6 +159,47 @@ class VehicleBrandCoverageOut(BaseModel):
 
 class VehicleBrandCoverageListOut(BaseModel):
     items: list[VehicleBrandCoverageOut]
+
+
+# ---------------------------------------------------------------------------
+# Members (session 10)
+# ---------------------------------------------------------------------------
+
+
+class BusinessMemberOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    business_id: uuid.UUID
+    user_id: uuid.UUID
+    role: BusinessMemberRole
+    created_at: datetime
+    updated_at: datetime
+
+
+class BusinessMemberListOut(BaseModel):
+    items: list[BusinessMemberOut]
+
+
+class BusinessMemberAddIn(BaseModel):
+    """Body for `POST /businesses/me/members`.
+
+    The owner identifies a user by phone (the same identifier they use
+    for OTP login). `role` is constrained to manager/staff — owner is
+    set during business creation and cannot be added or changed via
+    this endpoint.
+    """
+
+    user_phone: str
+    role: Literal["manager", "staff"]
+
+    @field_validator("user_phone")
+    @classmethod
+    def _normalize(cls, v: str) -> str:
+        return normalize_phone(v)
+
+
+class BusinessMemberDeleteOut(BaseModel):
+    ok: Literal[True] = True
 
 
 class CoverageFilter(NamedTuple):

@@ -7,8 +7,14 @@ import uuid
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.businesses.models import Business, BusinessVehicleBrand
+from app.businesses.models import (
+    Business,
+    BusinessMember,
+    BusinessMemberRole,
+    BusinessVehicleBrand,
+)
 from app.businesses.repository import (
+    BusinessMemberRepository,
     BusinessRepository,
     BusinessVehicleBrandRepository,
 )
@@ -19,6 +25,7 @@ from app.businesses.schemas import (
     VehicleBrandCoverageIn,
 )
 from app.identity.models import User, UserRole
+from app.identity.repository import UserRepository
 from app.platform.errors import ConflictError, ForbiddenError, NotFoundError, ValidationError
 from app.platform.logging import get_logger
 
@@ -30,6 +37,8 @@ class BusinessesService:
         self.session = session
         self.businesses = BusinessRepository(session)
         self.coverage = BusinessVehicleBrandRepository(session)
+        self.members = BusinessMemberRepository(session)
+        self.users = UserRepository(session)
 
     async def create(self, *, owner: User, payload: BusinessCreateIn) -> Business:
         if owner.role != UserRole.business:
@@ -49,6 +58,14 @@ class BusinessesService:
             # Race: two concurrent POSTs for the same owner. The partial
             # unique index catches it even if the pre-check missed.
             raise ConflictError("This user already has a business profile") from exc
+
+        # Seed the membership pivot with the owner so multi-staff lookups
+        # don't have to special-case the owner_id column.
+        await self.members.upsert(
+            business_id=business.id,
+            user_id=owner.id,
+            role=BusinessMemberRole.owner,
+        )
         logger.info(
             "business_created",
             business_id=str(business.id),
@@ -126,3 +143,58 @@ class BusinessesService:
             )
             for row in rows
         ]
+
+    # ---- members (session 10) ---------------------------------------------
+
+    async def list_members(self, business: Business) -> list[BusinessMember]:
+        return await self.members.list_for_business(business.id)
+
+    async def add_member(
+        self,
+        *,
+        business: Business,
+        actor_role: BusinessMemberRole,
+        user_phone: str,
+        role: BusinessMemberRole,
+    ) -> BusinessMember:
+        if actor_role != BusinessMemberRole.owner:
+            raise ForbiddenError("Only the owner can add members")
+        if role == BusinessMemberRole.owner:
+            raise ConflictError("A business has exactly one owner")
+        target = await self.users.get_by_phone(user_phone)
+        if target is None:
+            raise NotFoundError("User not found")
+        member = await self.members.upsert(business_id=business.id, user_id=target.id, role=role)
+        logger.info(
+            "business_member_added",
+            business_id=str(business.id),
+            user_id=str(target.id),
+            role=role.value,
+        )
+        return member
+
+    async def remove_member(
+        self,
+        *,
+        business: Business,
+        actor_role: BusinessMemberRole,
+        user_id: uuid.UUID,
+    ) -> None:
+        if actor_role != BusinessMemberRole.owner:
+            raise ForbiddenError("Only the owner can remove members")
+        existing = await self.members.get(business.id, user_id)
+        if existing is None:
+            raise NotFoundError("Member not found")
+        if existing.role == BusinessMemberRole.owner:
+            raise ConflictError("Cannot remove the owner")
+        await self.members.delete(business_id=business.id, user_id=user_id)
+        logger.info(
+            "business_member_removed",
+            business_id=str(business.id),
+            user_id=str(user_id),
+        )
+
+    async def get_membership(
+        self, *, business_id: uuid.UUID, user_id: uuid.UUID
+    ) -> BusinessMember | None:
+        return await self.members.get(business_id, user_id)
