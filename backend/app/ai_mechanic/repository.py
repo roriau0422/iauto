@@ -22,6 +22,8 @@ from app.ai_mechanic.models import (
     AiSessionStatus,
     AiSpendEvent,
     AiVoiceTranscript,
+    AiWarningLightPrediction,
+    AiWarningLightTaxonomy,
 )
 
 
@@ -306,6 +308,49 @@ class AiVoiceTranscriptRepository:
             text=text,
             language=language,
             audio_seconds=audio_seconds,
+        )
+        self.session.add(row)
+        await self.session.flush()
+        return row
+
+
+class AiWarningLightTaxonomyRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    async def list_codes(self) -> list[str]:
+        stmt = select(AiWarningLightTaxonomy.code).order_by(AiWarningLightTaxonomy.code)
+        return list((await self.session.execute(stmt)).scalars())
+
+    async def lookup_by_codes(self, codes: list[str]) -> dict[str, AiWarningLightTaxonomy]:
+        if not codes:
+            return {}
+        stmt = select(AiWarningLightTaxonomy).where(AiWarningLightTaxonomy.code.in_(codes))
+        rows = list((await self.session.execute(stmt)).scalars())
+        return {r.code: r for r in rows}
+
+
+class AiWarningLightPredictionRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    async def create(
+        self,
+        *,
+        session_id: uuid.UUID,
+        user_id: uuid.UUID,
+        media_asset_id: uuid.UUID,
+        model: str,
+        predictions: list[dict[str, Any]],
+        top_code: str | None,
+    ) -> AiWarningLightPrediction:
+        row = AiWarningLightPrediction(
+            session_id=session_id,
+            user_id=user_id,
+            media_asset_id=media_asset_id,
+            model=model,
+            predictions=predictions,
+            top_code=top_code,
         )
         self.session.add(row)
         await self.session.flush()

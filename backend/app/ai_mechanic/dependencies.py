@@ -12,6 +12,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.ai_mechanic.agent import AgentRunner, build_live_runner
 from app.ai_mechanic.embeddings import EmbeddingClient, OpenAIEmbeddingClient
 from app.ai_mechanic.service import AiMechanicService
+from app.ai_mechanic.warning_lights import (
+    HashHeuristicClassifier,
+    WarningLightClassifier,
+)
 from app.ai_mechanic.whisper import OpenAIWhisperClient, WhisperClient
 from app.media.client import MediaClient, S3MediaClient
 from app.platform.cache import get_redis
@@ -61,6 +65,16 @@ def get_media_download_client() -> MediaClient:
     return _build_media_client_singleton()
 
 
+@lru_cache(maxsize=1)
+def _build_warning_light_classifier_singleton() -> WarningLightClassifier:
+    """Phase 3 placeholder. Phase 5 swaps this for an ONNX-served MobileNet."""
+    return HashHeuristicClassifier()
+
+
+def get_warning_light_classifier() -> WarningLightClassifier:
+    return _build_warning_light_classifier_singleton()
+
+
 def get_redis_dep() -> Redis:
     return get_redis()
 
@@ -72,6 +86,7 @@ def get_ai_mechanic_service(
     embeddings: Annotated[EmbeddingClient, Depends(get_embedding_client)],
     whisper: Annotated[WhisperClient, Depends(get_whisper_client)],
     media_download: Annotated[MediaClient, Depends(get_media_download_client)],
+    classifier: Annotated[WarningLightClassifier, Depends(get_warning_light_classifier)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> AiMechanicService:
     return AiMechanicService(
@@ -81,5 +96,6 @@ def get_ai_mechanic_service(
         embeddings=embeddings,
         whisper=whisper,
         media_download=media_download,
+        warning_light_classifier=classifier,
         settings=settings,
     )

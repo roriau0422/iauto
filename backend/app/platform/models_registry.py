@@ -17,6 +17,8 @@ from app.ai_mechanic.models import (
     AiSession,
     AiSpendEvent,
     AiVoiceTranscript,
+    AiWarningLightPrediction,
+    AiWarningLightTaxonomy,
 )
 
 # -- businesses --------------------------------------------------------------
@@ -77,6 +79,8 @@ __all__: list[str] = [
     "AiSession",
     "AiSpendEvent",
     "AiVoiceTranscript",
+    "AiWarningLightPrediction",
+    "AiWarningLightTaxonomy",
     "Business",
     "BusinessMember",
     "BusinessVehicleBrand",

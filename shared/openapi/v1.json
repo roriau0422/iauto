@@ -1330,7 +1330,8 @@
           "review",
           "story",
           "ad",
-          "voice"
+          "voice",
+          "warning_light"
         ],
         "title": "MediaAssetPurpose",
         "type": "string"
@@ -4631,6 +4632,169 @@
         "title": "WarehouseMovementKind",
         "type": "string"
       },
+      "WarningLightLabelOut": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "confidence": {
+            "title": "Confidence",
+            "type": "number"
+          },
+          "display_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display En"
+          },
+          "display_mn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Mn"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Severity"
+          }
+        },
+        "required": [
+          "code",
+          "confidence"
+        ],
+        "title": "WarningLightLabelOut",
+        "type": "object"
+      },
+      "WarningLightMessageCreateIn": {
+        "properties": {
+          "media_asset_id": {
+            "format": "uuid",
+            "title": "Media Asset Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "media_asset_id"
+        ],
+        "title": "WarningLightMessageCreateIn",
+        "type": "object"
+      },
+      "WarningLightPredictionOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "media_asset_id": {
+            "format": "uuid",
+            "title": "Media Asset Id",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "session_id": {
+            "format": "uuid",
+            "title": "Session Id",
+            "type": "string"
+          },
+          "top_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top Code"
+          }
+        },
+        "required": [
+          "id",
+          "session_id",
+          "media_asset_id",
+          "model",
+          "top_code",
+          "created_at"
+        ],
+        "title": "WarningLightPredictionOut",
+        "type": "object"
+      },
+      "WarningLightReplyOut": {
+        "description": "Classify → post a system-prefixed user message → run the agent.\n\n`labels` is the resolved-with-display top-K ordered by confidence.",
+        "properties": {
+          "agent_micro_mnt": {
+            "title": "Agent Micro Mnt",
+            "type": "integer"
+          },
+          "assistant_message": {
+            "$ref": "#/components/schemas/MessageOut"
+          },
+          "classifier_micro_mnt": {
+            "title": "Classifier Micro Mnt",
+            "type": "integer"
+          },
+          "completion_tokens": {
+            "title": "Completion Tokens",
+            "type": "integer"
+          },
+          "labels": {
+            "items": {
+              "$ref": "#/components/schemas/WarningLightLabelOut"
+            },
+            "title": "Labels",
+            "type": "array"
+          },
+          "prediction": {
+            "$ref": "#/components/schemas/WarningLightPredictionOut"
+          },
+          "prompt_tokens": {
+            "title": "Prompt Tokens",
+            "type": "integer"
+          },
+          "user_message": {
+            "$ref": "#/components/schemas/MessageOut"
+          }
+        },
+        "required": [
+          "prediction",
+          "labels",
+          "user_message",
+          "assistant_message",
+          "prompt_tokens",
+          "completion_tokens",
+          "classifier_micro_mnt",
+          "agent_micro_mnt"
+        ],
+        "title": "WarningLightReplyOut",
+        "type": "object"
+      },
       "XypPayloadIn": {
         "additionalProperties": true,
         "description": "Raw XYP response the client captured on a successful on-device lookup.\n\nThe client MUST pass this through untouched so we can store it verbatim\nin `vehicles.raw_xyp` for later auditing. Individual fields below are\nparsed from this payload during registration.\n\nField names match smartcar.mn's real wire format — camelCase upstream,\nwhich is why each line ignores `N815` (non-lowercase variable names).",
@@ -5752,6 +5916,75 @@
           }
         },
         "summary": "Voice → Whisper transcription → agent reply",
+        "tags": [
+          "ai_mechanic"
+        ]
+      }
+    },
+    "/v1/ai-mechanic/sessions/{session_id}/warning-light": {
+      "post": {
+        "operationId": "post_warning_light_message_v1_ai_mechanic_sessions__session_id__warning_light_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WarningLightMessageCreateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WarningLightReplyOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Dashboard photo → classifier → agent diagnosis",
         "tags": [
           "ai_mechanic"
         ]

@@ -39,6 +39,7 @@ class MediaAssetPurpose(StrEnum):
     story = "story"
     ad = "ad"
     voice = "voice"
+    warning_light = "warning_light"
 
 
 class MediaAsset(UuidPrimaryKey, Timestamped, Base):

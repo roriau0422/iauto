@@ -105,6 +105,45 @@ class VoiceReplyOut(BaseModel):
     agent_micro_mnt: int
 
 
+class WarningLightMessageCreateIn(BaseModel):
+    media_asset_id: uuid.UUID
+
+
+class WarningLightLabelOut(BaseModel):
+    code: str
+    confidence: float
+    display_en: str | None = None
+    display_mn: str | None = None
+    severity: str | None = None
+
+
+class WarningLightPredictionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    session_id: uuid.UUID
+    media_asset_id: uuid.UUID
+    model: str
+    top_code: str | None
+    created_at: datetime
+
+
+class WarningLightReplyOut(BaseModel):
+    """Classify → post a system-prefixed user message → run the agent.
+
+    `labels` is the resolved-with-display top-K ordered by confidence.
+    """
+
+    prediction: WarningLightPredictionOut
+    labels: list[WarningLightLabelOut]
+    user_message: MessageOut
+    assistant_message: MessageOut
+    prompt_tokens: int
+    completion_tokens: int
+    classifier_micro_mnt: int
+    agent_micro_mnt: int
+
+
 # ---------------------------------------------------------------------------
 # Knowledge base ingestion (admin / phase-3 dev surface)
 # ---------------------------------------------------------------------------

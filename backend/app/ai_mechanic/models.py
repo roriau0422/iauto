@@ -214,3 +214,64 @@ class AiVoiceTranscript(UuidPrimaryKey, Base):
         nullable=False,
         server_default=func.now(),
     )
+
+
+class AiWarningLightSeverity(StrEnum):
+    info = "info"
+    warn = "warn"
+    critical = "critical"
+
+
+class AiWarningLightTaxonomy(UuidPrimaryKey, Timestamped, Base):
+    """Curated icon vocabulary the classifier returns codes from."""
+
+    __tablename__ = "ai_warning_light_taxonomy"
+
+    code: Mapped[str] = mapped_column(Text, nullable=False)
+    display_en: Mapped[str] = mapped_column(Text, nullable=False)
+    display_mn: Mapped[str] = mapped_column(Text, nullable=False)
+    severity: Mapped[AiWarningLightSeverity] = mapped_column(
+        SAEnum(
+            AiWarningLightSeverity,
+            name="ai_warning_light_severity",
+            native_enum=True,
+        ),
+        nullable=False,
+    )
+
+    __table_args__ = (UniqueConstraint("code", name="uq_ai_warning_light_taxonomy_code"),)
+
+
+class AiWarningLightPrediction(UuidPrimaryKey, Base):
+    """Append-only audit row per classifier call.
+
+    `predictions` is a jsonb array of `{code, confidence}` ordered by
+    confidence desc. `top_code` mirrors the highest-confidence label
+    so the inbox feed can index it without unnesting jsonb.
+    """
+
+    __tablename__ = "ai_warning_light_predictions"
+
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("ai_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    media_asset_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("media_assets.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    model: Mapped[str] = mapped_column(Text, nullable=False)
+    predictions: Mapped[list[Any]] = mapped_column(JSONB, nullable=False, server_default="[]")
+    top_code: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
