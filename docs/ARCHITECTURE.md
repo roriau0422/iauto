@@ -1,9 +1,9 @@
 # iAuto — System Architecture
 
-**Status:** initial plan, pre-implementation
-**Date:** 2026-04-02
+**Status:** phases 1–5 backend complete; mobile (Expo) deferred
+**Date:** 2026-04-02 (last updated 2026-05-03)
 **Backend:** FastAPI (async)
-**Mobile:** React Native via Expo (dev client / bare-adjacent)
+**Mobile:** React Native via Expo (dev client / bare-adjacent) — deferred
 **Scope source:** `docs/iAuto.docx.pdf`
 
 ---
@@ -400,53 +400,54 @@ Reality check: this team will not operate Kubernetes well in year one. Deploy bo
 
 Assumes 4–6 engineers. Each phase is 4–6 weeks. Double the timeline if the team is 2 people.
 
-### Phase 0 — foundations (weeks 1–4)
+> **Backend status (2026-05-03):** phases 1–5 shipped. Mobile (Expo) deferred until staging cutover. Per-session log lives in `tasks/todo.md`; CHANGELOG below.
+
+### Phase 0 — foundations — **DONE**
 - Monorepo, CI, dev environment.
 - FastAPI skeleton with identity + vehicles + catalog contexts.
-- Expo app skeleton with navigation and generated API client.
 - OTP auth end-to-end.
 - Vehicle registration via client-side smartcar.mn XYP lookup, with a versioned server-controlled lookup plan and a MessagePro-backed operator pager for gateway failures (see §3.7).
 - Outbox and event store plumbing.
+- Expo skeleton **deferred**.
 
-### Phase 1 — core marketplace (weeks 5–10)
+### Phase 1 — core marketplace — **DONE** (sessions 4–9)
 - Part search (text + images).
 - Quote flow, 24h reservation, sale completion.
 - Ratings and reviews.
 - Chat with WebSocket + Redis Pub/Sub.
 - Push notifications.
-- QPay integration and ledger.
-- My Car (tax/insurance/fines).
-- Service history and PDF export.
+- QPay v2 integration and double-entry ledger.
+- My Car (tax/insurance/fines stubbed against future data sources).
+- Service history and PDF export (reportlab).
 
-### Phase 2 — business tools (weeks 11–14)
-- Warehouse management on mobile **and** a dedicated business web app. The web surface is a spec requirement (section 11.1: "Апп болон вебээр ажиллана"), not a nice-to-have — businesses will not run inventory through the admin panel. Build it as a minimal **Vite + React + TanStack Query** SPA that consumes the same generated OpenAPI client as the mobile app. Deployed as static assets behind the same reverse proxy.
-- iAuto Story feed with premium-contract logic.
-- Paid ad system with targeting and 48h reports.
-- Admin panel (SQLAdmin) for moderation and content — internal use only, distinct from the business warehouse web app.
+### Phase 2 — business tools — **DONE** (sessions 10–12)
+- Warehouse management (SKUs + stock movements with audit-preserving SET NULL on SKU delete).
+- iAuto Story feed (posts, likes, comments).
+- Paid ad system with targeting + impression/click tracking via QPay invoices.
+- Web admin **deferred** per session-12 scope decision; SQLAdmin still planned for moderation post-launch.
 
-### Phase 3 — AI Mechanic MVP (weeks 15–20)
-- RAG knowledge base bootstrap (OBD-II codes + seed curated content).
-- Dashboard warning light classifier (fine-tuned MobileNet on open dataset).
-- Audio pipeline split: Whisper for speech, multimodal LLM for engine sounds.
-- Agents SDK with vehicle-context, parts-search, labor-cost, and follow-up tools.
-- SSE streaming UI.
-- Cost controls and per-user rate limits live from day one of this phase.
+### Phase 3 — AI Mechanic MVP — **DONE** (sessions 13–16)
+- RAG knowledge base with `ai_kb_chunks` (vector(1536)) + per-(scope,content_hash) embedding cache.
+- OpenAI Agents SDK + LiteLLM routing to Gemini (`gemini-3-flash-preview`).
+- Whisper voice → text (`POST /v1/ai-mechanic/sessions/{id}/voice`).
+- Warning-light classifier (`HashHeuristicClassifier` placeholder; ONNX MobileNet swap-in deferred to post-launch).
+- Gemini multimodal — visual + engine-sound (`POST /v1/ai-mechanic/sessions/{id}/visual` and `.../engine-sound`).
+- Cost controls live from day one: per-user daily Redis rate limit, embedding cache, spend log in micro-MNT.
 
-### Phase 4 — Car Valuation (weeks 18–24, overlaps with phase 3)
-- Legal review of scraping — **gate**. If negative, pivot to АТҮТ + platform data only and reduce scope.
-- Scraping pipelines.
-- Feature engineering with Mongolia-specific factors.
-- CatBoost V1 for range estimate (free tier).
-- Mobile UX for valuation.
-- Premium report paid flow.
-- Shadow deployment framework.
+### Phase 4 — Car Valuation — **DONE** (session 17)
+- `valuation_models` registry with partial-unique `WHERE status='active'` index and `valuation_estimates` audit table.
+- `POST /v1/valuation/estimate` + `GET /v1/valuation/models/active`.
+- `HeuristicValuationModel` (cold-start) + `CatBoostValuationModel.load_from_bytes` (loaded from MinIO).
+- Daily 02:00 UTC retrain cron — pulls every sale joined with the underlying vehicle, fits a CatBoost regressor, ships the artifact to MinIO, promotes the new row.
+- Scraping pipelines + premium paid report **deferred**: heuristic serves until enough sale data accumulates.
 
-### Phase 5 — moat acceleration
-- OBD-II BLE integration (drives phase 3 diagnosis quality upward).
-- Dealer bulk valuation API (B2B revenue).
-- Bank/leasing valuation API (B2B revenue).
-- Business web app grows from phase-2 MVP into a full analytics and operations dashboard.
-- Evaluation of message broker upgrade.
+### Phase 5 — Production hardening — **DONE** (sessions 18–22)
+- **Session 18 — Observability:** Sentry + Prometheus + OpenTelemetry hooks, all env-gated. `MetricsMiddleware` + `/metrics` Prometheus scrape endpoint at the app root. AI spend mirrors into a counter via `record_ai_spend`.
+- **Session 19 — Deploy hardening:** multi-stage Dockerfile (non-root, tini PID 1), `infra/docker-compose.prod.yml` w/ nginx TLS terminator on a split internal/edge network, `/v1/ready` extended to probe MinIO + outbox lag concurrently with per-probe 2s timeout.
+- **Session 20 — Cost alerts + admin spend report:** daily 05:00 UTC cron sums trailing-24h AI spend and pages OPERATOR_PHONE on overage. New `/v1/admin/spend` (admin role gate) returns total + per-model + top-N user breakdowns.
+- **Session 21 — Index + autovacuum hardening:** HNSW cosine index on `ai_kb_chunks.embedding`, autovacuum reloption tightening on outbox/AI/chat tables (1–5% scale factor), compound `(tenant_id, created_at DESC)` index on `quotes` for the marketplace pagination hot path.
+- **Session 22 — Auth hardening:** per-IP rate-limit middleware on `/v1/auth/*` (60 req/min, X-Forwarded-For aware, fails open if Redis is uninitialised). Refresh-token reuse-detection already shipped in phase 0.
+- **Deferred to post-launch:** JWT key rotation w/ kid + grace window, OBD-II BLE, dealer/bank bulk valuation API, business web app, ONNX MobileNet swap-in, real scraping pipelines, real tax/insurance/fines data sources, Expo mobile build.
 
 ---
 

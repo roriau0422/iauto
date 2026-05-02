@@ -79,21 +79,31 @@ alembic -x db=test upgrade head   # apply to the test DB
 alembic downgrade -1              # reversibility check — run this before commit
 ```
 
-Migration 0006 is the current head. `app/platform/models_registry.py` is the single import point Alembic's `env.py` uses; **add every new ORM model to that registry** or autogenerate will silently miss it.
+Migration 0020 is the current head. `app/platform/models_registry.py` is the single import point Alembic's `env.py` uses; **add every new ORM model to that registry** or autogenerate will silently miss it.
 
 ## Layout
 
 Contexts live under `app/<context>/`. Shared infra under `app/platform/`. HTTP routers aggregate under `app/api/v1/`. See `docs/ARCHITECTURE.md` §3.1 for the full bounded-context list.
 
-Implemented so far (alphabetical):
+Implemented contexts (alphabetical) — phases 1–5 complete:
 
-- `app/businesses/` — business profiles; `businesses.id` is the future `tenant_id`
+- `app/admin/` — internal-only `/v1/admin/spend` AI spend report (admin role gate)
+- `app/ads/` — self-served ad campaigns + click/impression tracking via QPay
+- `app/ai_mechanic/` — Agents-SDK skeleton, LiteLLM Gemini routing, tools, KB w/ pgvector + HNSW, Whisper voice, warning-light classifier, Gemini multimodal (visual + engine sound), per-user daily Redis rate limit, embedding cache, spend log
+- `app/businesses/` — profiles + members + vehicle-brand coverage; `businesses.id` is the `tenant_id`
 - `app/catalog/` — vehicle country → brand → model taxonomy
-- `app/identity/` — OTP auth, JWT, device registry, refresh rotation, role selection
-- `app/marketplace/` — part-search RFQ (driver side only in session 4)
-- `app/platform/` — config, db, cache, crypto, outbox, events, logging, errors, middleware, ids, models registry
-- `app/vehicles/` — client-side XYP lookup plan, ownership, operator SMS alerts, steering_side + import_month + class_code + fuel_type
-- `app/workers/` — Arq `outbox_consumer` (ticks every 5 s, runs registered handlers, archives to `events_archive`)
+- `app/chat/` — WebSocket chat over Redis pub/sub (driver ↔ business + ↔ user)
+- `app/identity/` — OTP auth, JWT + rotating refresh w/ reuse-detection, device registry, role selection
+- `app/marketplace/` — part-search RFQ + quotes + reservations + sales + reviews
+- `app/media/` — MinIO presign+confirm flow for images, audio, PDFs
+- `app/notifications/` — push notifications via outbox subscribers (FCM + APNs)
+- `app/payments/` — QPay v2 invoices + double-entry ledger
+- `app/platform/` — config, db, cache, crypto, outbox, events, logging, errors, middleware, observability (Sentry + Prometheus + OTel), auth rate-limit, models registry
+- `app/story/` — iAuto Story feed (posts, likes, comments)
+- `app/valuation/` — CatBoost car valuation w/ heuristic fallback (`POST /v1/valuation/estimate`)
+- `app/vehicles/` — client-side XYP lookup plan, ownership, operator SMS alerts, service history + PDF export
+- `app/warehouse/` — business inventory (SKUs + stock movements)
+- `app/workers/` — Arq cron jobs: outbox tick (5s), reservation expiry (1m), valuation retrain (02:00 UTC daily), AI cost alert (05:00 UTC daily)
 
 Tests mirror the layout under `tests/<context>/`. The integration-test fixture in `tests/conftest.py` wraps every test in a SAVEPOINT against the `iauto_test` database on the dev-compose Postgres — no mocks, no sqlite fallback.
 
