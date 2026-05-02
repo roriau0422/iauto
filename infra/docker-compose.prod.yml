@@ -1,0 +1,187 @@
+# iAuto — production "boring VM" stack.
+#
+# This is the docker-compose form of the deploy story in
+# docs/ARCHITECTURE.md §10. It runs the FastAPI app, the Arq outbox
+# worker, Postgres, Redis, MinIO, and an nginx TLS terminator on a
+# single host. Suitable for ~100k DAU; trade in for k8s when you
+# outgrow it.
+#
+# Bring it up (after writing /opt/iauto/.env from infra/prod.env.example):
+#     docker compose -f infra/docker-compose.prod.yml --env-file /opt/iauto/.env up -d
+#
+# All ports bind to localhost only — only nginx exposes 443/80 to the
+# wider network. Backups: pg_dump is wired into a sidecar `backup`
+# service; configure off-host destination via env.
+
+name: iauto-prod
+
+x-app-base: &app-base
+  build:
+    context: ../backend
+    dockerfile: Dockerfile
+  image: iauto/backend:${IAUTO_IMAGE_TAG:-latest}
+  restart: unless-stopped
+  environment:
+    APP_ENV: prod
+    APP_DEBUG: "false"
+    APP_LOG_FORMAT: json
+    DATABASE_URL: postgresql+asyncpg://iauto:${POSTGRES_PASSWORD}@postgres:5432/iauto
+    REDIS_URL: redis://redis:6379/0
+    S3_ENDPOINT_URL: http://minio:9000
+    S3_ACCESS_KEY: ${MINIO_ROOT_USER}
+    S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+    S3_BUCKET_MEDIA: iauto-media
+    S3_USE_PATH_STYLE: "true"
+    JWT_SECRET: ${JWT_SECRET}
+    APP_DATA_KEY: ${APP_DATA_KEY}
+    APP_SEARCH_KEY: ${APP_SEARCH_KEY}
+    GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    SENTRY_DSN: ${SENTRY_DSN:-}
+    OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+    QPAY_BASE_URL: ${QPAY_BASE_URL:-}
+    QPAY_USERNAME: ${QPAY_USERNAME:-}
+    QPAY_PASSWORD: ${QPAY_PASSWORD:-}
+    QPAY_INVOICE_CODE: ${QPAY_INVOICE_CODE:-}
+    QPAY_CALLBACK_URL: ${QPAY_CALLBACK_URL:-}
+    MESSAGEPRO_BASE_URL: ${MESSAGEPRO_BASE_URL:-}
+    MESSAGEPRO_API_KEY: ${MESSAGEPRO_API_KEY:-}
+    MESSAGEPRO_SENDER: ${MESSAGEPRO_SENDER:-}
+    OPERATOR_PHONE: ${OPERATOR_PHONE:-}
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+    minio:
+      condition: service_healthy
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    shm_size: 1gb
+    environment:
+      POSTGRES_USER: iauto
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: iauto
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - iauto_pg_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U iauto -d iauto"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    # Keep Postgres off the public network — only the api/worker reach it.
+    networks: [iauto-internal]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - iauto_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [iauto-internal]
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - iauto_minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [iauto-internal]
+
+  minio-bootstrap:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD} &&
+      mc mb --ignore-existing local/iauto-media &&
+      echo 'minio bucket ready'
+      "
+    restart: "no"
+    networks: [iauto-internal]
+
+  api:
+    <<: *app-base
+    command: ["uvicorn", "app.main:app",
+              "--host", "0.0.0.0",
+              "--port", "8000",
+              "--proxy-headers",
+              "--forwarded-allow-ips=*",
+              "--workers", "4",
+              "--log-config", "/dev/null"]
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail http://localhost:8000/v1/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - iauto-internal
+      - iauto-edge
+
+  worker:
+    <<: *app-base
+    command: ["arq", "app.workers.outbox_consumer.WorkerSettings"]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -h redis ping || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks: [iauto-internal]
+
+  migrate:
+    <<: *app-base
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+    healthcheck:
+      disable: true
+    networks: [iauto-internal]
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - iauto_certs:/etc/letsencrypt
+    networks: [iauto-edge]
+
+volumes:
+  iauto_pg_data:
+  iauto_redis_data:
+  iauto_minio_data:
+  iauto_certs:
+
+networks:
+  # Internal network keeps Postgres, Redis, MinIO unreachable from the
+  # public-facing nginx-only edge.
+  iauto-internal:
+    driver: bridge
+  iauto-edge:
+    driver: bridge

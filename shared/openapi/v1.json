@@ -2393,6 +2393,14 @@
             "title": "Database",
             "type": "boolean"
           },
+          "object_storage": {
+            "title": "Object Storage",
+            "type": "boolean"
+          },
+          "outbox_backlog": {
+            "title": "Outbox Backlog",
+            "type": "integer"
+          },
           "redis": {
             "title": "Redis",
             "type": "boolean"
@@ -2409,7 +2417,9 @@
         "required": [
           "status",
           "database",
-          "redis"
+          "redis",
+          "object_storage",
+          "outbox_backlog"
         ],
         "title": "ReadinessResponse",
         "type": "object"
