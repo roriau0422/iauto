@@ -124,6 +124,25 @@ class Settings(BaseSettings):
     admin_panel_enabled: bool = False
     admin_panel_secret: str = ""
 
+    # ---- AI Mechanic (Phase 3) --------------------------------------------
+    # Gemini API key — routes through OpenAI Agents SDK's LiteLLM extension
+    # via `LitellmModel(model="gemini/gemini-3-flash-preview", api_key=...)`.
+    # The key shipped via env. Rotate before any production deploy — chat
+    # leakage rule applies (same as MessagePro / QPay credentials).
+    gemini_api_key: str = ""
+    ai_mechanic_model: str = "gemini/gemini-3-flash-preview"
+    ai_mechanic_embedding_model: str = "text-embedding-3-small"
+    # Optional separate OpenAI key for embeddings — falls back to gemini_api_key
+    # in dev. Phase 5 swaps to a Gemini-native embedding once available.
+    openai_api_key: str = ""
+    # Daily request cap per user — Redis key `ai:rl:{user_id}:{yyyy-mm-dd}`
+    # INCR'd on each agent run. 30 requests/day is generous enough for
+    # heavy use without risking a billing shock during phase 3 dogfooding.
+    ai_daily_request_limit_per_user: int = 30
+    # Live LLM calls in the test suite are gated. Default off so CI never
+    # burns tokens; flip to `1` in `backend/.env` to run live smoke tests.
+    ai_live_tests: bool = False
+
     # Observability
     sentry_dsn: str | None = None
     otel_exporter_otlp_endpoint: str | None = None

@@ -23,6 +23,12 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from app.identity.providers.sms import InMemorySmsProvider
+
+# Load every ORM model into Base.metadata before any test imports a context
+# selectively. Otherwise a model with FKs to a sibling context (e.g.
+# AiKbDocument → vehicle_models) raises NoReferencedTableError at flush
+# time when the sibling hasn't been imported yet by the test module.
+from app.platform import models_registry  # noqa: F401
 from app.platform.config import get_settings
 from app.platform.outbox import clear_handlers
 

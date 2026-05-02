@@ -9,6 +9,15 @@ from __future__ import annotations
 # -- ads ---------------------------------------------------------------------
 from app.ads.models import AdCampaign, AdClick, AdImpression
 
+# -- ai_mechanic -------------------------------------------------------------
+from app.ai_mechanic.models import (
+    AiKbChunk,
+    AiKbDocument,
+    AiMessage,
+    AiSession,
+    AiSpendEvent,
+)
+
 # -- businesses --------------------------------------------------------------
 from app.businesses.models import Business, BusinessMember, BusinessVehicleBrand
 
@@ -61,6 +70,11 @@ __all__: list[str] = [
     "AdCampaign",
     "AdClick",
     "AdImpression",
+    "AiKbChunk",
+    "AiKbDocument",
+    "AiMessage",
+    "AiSession",
+    "AiSpendEvent",
     "Business",
     "BusinessMember",
     "BusinessVehicleBrand",

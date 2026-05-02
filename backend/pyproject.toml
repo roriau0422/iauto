@@ -32,6 +32,7 @@ dependencies = [
   "tenacity>=9.0",
   "boto3>=1.35",            # S3-compatible client (talks to MinIO via endpoint_url)
   "reportlab>=4.0",         # PDF rendering for service-history exports
+  "openai-agents[litellm]>=0.7",  # AI Mechanic — Agents SDK + LiteLLM for Gemini routing
 
   # Logging
   "structlog>=24.4",
@@ -144,6 +145,8 @@ module = [
   "arq.*",
   "botocore.*",
   "reportlab.*",
+  "agents.*",
+  "litellm.*",
 ]
 ignore_missing_imports = true
 
