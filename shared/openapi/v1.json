@@ -1,6 +1,27 @@
 {
   "components": {
     "schemas": {
+      "AdCampaignStatus": {
+        "description": "Lifecycle of a paid ad campaign.\n\n- `draft`           — created, payment intent not yet issued (unused\n                      today; flow goes straight from POST to\n                      `pending_payment`).\n- `pending_payment` — QPay invoice issued; awaiting settlement.\n- `active`          — settled; serving impressions.\n- `paused`          — manually paused by the business.\n- `exhausted`       — `spent_mnt >= budget_mnt`; auto-flipped.\n- `cancelled`       — manual cancel; refunds tracked elsewhere.",
+        "enum": [
+          "draft",
+          "pending_payment",
+          "active",
+          "paused",
+          "exhausted",
+          "cancelled"
+        ],
+        "title": "AdCampaignStatus",
+        "type": "string"
+      },
+      "AdPlacement": {
+        "enum": [
+          "story_feed",
+          "search_results"
+        ],
+        "title": "AdPlacement",
+        "type": "string"
+      },
       "BusinessCreateIn": {
         "properties": {
           "address": {
@@ -274,6 +295,274 @@
           }
         },
         "title": "BusinessUpdateIn",
+        "type": "object"
+      },
+      "CampaignActiveOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CampaignOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "CampaignActiveOut",
+        "type": "object"
+      },
+      "CampaignCreateIn": {
+        "properties": {
+          "body": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          },
+          "budget_mnt": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 999999999.0,
+            "title": "Budget Mnt",
+            "type": "integer"
+          },
+          "cpm_mnt": {
+            "maximum": 10000000.0,
+            "minimum": 100.0,
+            "title": "Cpm Mnt",
+            "type": "integer"
+          },
+          "media_asset_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Media Asset Id"
+          },
+          "placement": {
+            "$ref": "#/components/schemas/AdPlacement"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "body",
+          "placement",
+          "budget_mnt",
+          "cpm_mnt"
+        ],
+        "title": "CampaignCreateIn",
+        "type": "object"
+      },
+      "CampaignCreatedOut": {
+        "description": "Response on POST /ads/campaigns. Carries the QPay invoice payload\nso the caller can complete payment without a separate /payments call.",
+        "properties": {
+          "campaign": {
+            "$ref": "#/components/schemas/CampaignOut"
+          },
+          "deeplink": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deeplink"
+          },
+          "payment_intent_id": {
+            "format": "uuid",
+            "title": "Payment Intent Id",
+            "type": "string"
+          },
+          "qr_image_base64": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qr Image Base64"
+          },
+          "qr_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qr Text"
+          }
+        },
+        "required": [
+          "campaign",
+          "payment_intent_id"
+        ],
+        "title": "CampaignCreatedOut",
+        "type": "object"
+      },
+      "CampaignListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CampaignOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "CampaignListOut",
+        "type": "object"
+      },
+      "CampaignOut": {
+        "properties": {
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "budget_mnt": {
+            "title": "Budget Mnt",
+            "type": "integer"
+          },
+          "clicks": {
+            "title": "Clicks",
+            "type": "integer"
+          },
+          "cpm_mnt": {
+            "title": "Cpm Mnt",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "ends_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ends At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "impressions": {
+            "title": "Impressions",
+            "type": "integer"
+          },
+          "media_asset_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Media Asset Id"
+          },
+          "payment_intent_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payment Intent Id"
+          },
+          "placement": {
+            "$ref": "#/components/schemas/AdPlacement"
+          },
+          "spent_mnt": {
+            "title": "Spent Mnt",
+            "type": "integer"
+          },
+          "starts_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Starts At"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AdCampaignStatus"
+          },
+          "tenant_id": {
+            "format": "uuid",
+            "title": "Tenant Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenant_id",
+          "title",
+          "body",
+          "media_asset_id",
+          "placement",
+          "budget_mnt",
+          "cpm_mnt",
+          "status",
+          "payment_intent_id",
+          "starts_at",
+          "ends_at",
+          "impressions",
+          "clicks",
+          "spent_mnt",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "CampaignOut",
         "type": "object"
       },
       "ChatMessageCreateIn": {
@@ -828,7 +1117,8 @@
           "part_search",
           "quote",
           "review",
-          "story"
+          "story",
+          "ad"
         ],
         "title": "MediaAssetPurpose",
         "type": "string"
@@ -2864,6 +3154,45 @@
         "title": "TokenPairOut",
         "type": "object"
       },
+      "TrackingOut": {
+        "properties": {
+          "campaign_id": {
+            "format": "uuid",
+            "title": "Campaign Id",
+            "type": "string"
+          },
+          "clicks": {
+            "title": "Clicks",
+            "type": "integer"
+          },
+          "impressions": {
+            "title": "Impressions",
+            "type": "integer"
+          },
+          "ok": {
+            "const": true,
+            "default": true,
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "spent_mnt": {
+            "title": "Spent Mnt",
+            "type": "integer"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AdCampaignStatus"
+          }
+        },
+        "required": [
+          "campaign_id",
+          "impressions",
+          "clicks",
+          "spent_mnt",
+          "status"
+        ],
+        "title": "TrackingOut",
+        "type": "object"
+      },
       "UserOut": {
         "properties": {
           "avatar_url": {
@@ -3900,6 +4229,544 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/v1/ads/active": {
+      "get": {
+        "operationId": "list_active_v1_ads_active_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "placement",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/AdPlacement"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 5,
+              "maximum": 20,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignActiveOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Up to N active ads for a placement (public)",
+        "tags": [
+          "ads"
+        ]
+      }
+    },
+    "/v1/ads/campaigns": {
+      "post": {
+        "operationId": "create_campaign_v1_ads_campaigns_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CampaignCreateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignCreatedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create an ad campaign (owner / manager only)",
+        "tags": [
+          "ads"
+        ]
+      }
+    },
+    "/v1/ads/campaigns/mine": {
+      "get": {
+        "operationId": "list_mine_v1_ads_campaigns_mine_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List the caller's ad campaigns",
+        "tags": [
+          "ads"
+        ]
+      }
+    },
+    "/v1/ads/campaigns/{campaign_id}": {
+      "get": {
+        "operationId": "get_campaign_v1_ads_campaigns__campaign_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Campaign Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read a campaign owned by the caller",
+        "tags": [
+          "ads"
+        ]
+      }
+    },
+    "/v1/ads/campaigns/{campaign_id}/activate": {
+      "post": {
+        "operationId": "force_activate_v1_ads_campaigns__campaign_id__activate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Campaign Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Force-activate a pending_payment campaign (owner only). Phase 2 placeholder until the campaign-tied QPay invoice flow lands.",
+        "tags": [
+          "ads"
+        ]
+      }
+    },
+    "/v1/ads/campaigns/{campaign_id}/clicks": {
+      "post": {
+        "operationId": "record_click_v1_ads_campaigns__campaign_id__clicks_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Campaign Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record a click",
+        "tags": [
+          "ads"
+        ]
+      }
+    },
+    "/v1/ads/campaigns/{campaign_id}/impressions": {
+      "post": {
+        "operationId": "record_impression_v1_ads_campaigns__campaign_id__impressions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Campaign Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record an impression",
+        "tags": [
+          "ads"
+        ]
+      }
+    },
+    "/v1/ads/campaigns/{campaign_id}/pause": {
+      "post": {
+        "operationId": "pause_campaign_v1_ads_campaigns__campaign_id__pause_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Campaign Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Pause an active campaign",
+        "tags": [
+          "ads"
+        ]
+      }
+    },
+    "/v1/ads/campaigns/{campaign_id}/resume": {
+      "post": {
+        "operationId": "resume_campaign_v1_ads_campaigns__campaign_id__resume_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Campaign Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resume a paused campaign",
+        "tags": [
+          "ads"
+        ]
+      }
+    },
     "/v1/auth/logout": {
       "post": {
         "operationId": "logout_v1_auth_logout_post",

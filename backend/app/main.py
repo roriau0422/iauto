@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.ads.handlers import register as register_ads_handlers
 from app.api.v1 import api_router as v1_router
 from app.chat.handlers import register as register_chat_handlers
 from app.notifications.handlers import register as register_notification_handlers
@@ -37,6 +38,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     # worker (run in a separate process) and the API both see them.
     register_chat_handlers()
     register_notification_handlers()
+    register_ads_handlers()
 
     logger.info("startup_complete")
     try:

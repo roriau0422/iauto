@@ -6,6 +6,9 @@ table before autogenerate runs. Adding a new model? Import it here.
 
 from __future__ import annotations
 
+# -- ads ---------------------------------------------------------------------
+from app.ads.models import AdCampaign, AdClick, AdImpression
+
 # -- businesses --------------------------------------------------------------
 from app.businesses.models import Business, BusinessMember, BusinessVehicleBrand
 
@@ -55,6 +58,9 @@ from app.vehicles.models import (
 from app.warehouse.models import WarehouseSku, WarehouseStockMovement
 
 __all__: list[str] = [
+    "AdCampaign",
+    "AdClick",
+    "AdImpression",
     "Business",
     "BusinessMember",
     "BusinessVehicleBrand",
