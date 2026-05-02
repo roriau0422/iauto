@@ -106,6 +106,20 @@ class Settings(BaseSettings):
     operator_phone: str = ""
     xyp_alert_window_seconds: int = 900  # 15 min coalescing window
 
+    # QPay v2 payment rail — see backend/docs/references/qpay_laravel_reference.md.
+    # Sandbox base URL: https://merchant-sandbox.qpay.mn
+    # Prod base URL:    https://merchant.qpay.mn
+    qpay_base_url: AnyHttpUrl | None = None
+    qpay_username: str = ""
+    qpay_password: str = ""
+    qpay_invoice_code: str = ""
+    qpay_callback_url: str = ""
+    # HMAC secret used to verify QPay's webhook payload. The QPay v2 callback
+    # signing scheme is documented at https://developer.qpay.mn/ — until we
+    # confirm it via context7, the receiver runs in "log-only" mode where
+    # `signature_ok` is recorded but never blocks the status flip.
+    qpay_callback_secret: str = ""
+
     # Admin panel (section H — not mounted yet)
     admin_panel_enabled: bool = False
     admin_panel_secret: str = ""

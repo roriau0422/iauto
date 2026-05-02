@@ -15,11 +15,14 @@ from app.vehicles.schemas import (
     LookupPlanOut,
     LookupReportIn,
     LookupReportOut,
+    MyCarListOut,
     VehicleDeleteOut,
     VehicleListOut,
     VehicleOut,
     VehicleRegisterIn,
     VehicleRegisterOut,
+    VehicleServiceHistoryOut,
+    VehicleServiceLogOut,
 )
 from app.vehicles.service import VehiclesService
 
@@ -126,3 +129,64 @@ async def delete_vehicle(
 ) -> VehicleDeleteOut:
     await service.unregister(user_id=user.id, vehicle_id=vehicle_id)
     return VehicleDeleteOut()
+
+
+# ---------------------------------------------------------------------------
+# My Car (session 7 stubs)
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/vehicles/{vehicle_id}/service-history",
+    response_model=VehicleServiceHistoryOut,
+    summary="List the vehicle's service-history entries (owner only)",
+)
+async def list_service_history(
+    vehicle_id: uuid.UUID,
+    service: Annotated[VehiclesService, Depends(get_vehicles_service)],
+    user: Annotated[User, Depends(get_current_user)],
+) -> VehicleServiceHistoryOut:
+    rows = await service.list_service_history(user_id=user.id, vehicle_id=vehicle_id)
+    return VehicleServiceHistoryOut(items=[VehicleServiceLogOut.model_validate(r) for r in rows])
+
+
+@router.get(
+    "/vehicles/{vehicle_id}/tax",
+    response_model=MyCarListOut,
+    summary="Vehicle tax obligations placeholder (real data source TBD)",
+)
+async def list_vehicle_tax(
+    vehicle_id: uuid.UUID,
+    service: Annotated[VehiclesService, Depends(get_vehicles_service)],
+    user: Annotated[User, Depends(get_current_user)],
+) -> MyCarListOut:
+    await service.check_ownership(user_id=user.id, vehicle_id=vehicle_id)
+    return MyCarListOut(vehicle_id=vehicle_id, items=[])
+
+
+@router.get(
+    "/vehicles/{vehicle_id}/insurance",
+    response_model=MyCarListOut,
+    summary="Vehicle insurance placeholder (real data source TBD)",
+)
+async def list_vehicle_insurance(
+    vehicle_id: uuid.UUID,
+    service: Annotated[VehiclesService, Depends(get_vehicles_service)],
+    user: Annotated[User, Depends(get_current_user)],
+) -> MyCarListOut:
+    await service.check_ownership(user_id=user.id, vehicle_id=vehicle_id)
+    return MyCarListOut(vehicle_id=vehicle_id, items=[])
+
+
+@router.get(
+    "/vehicles/{vehicle_id}/fines",
+    response_model=MyCarListOut,
+    summary="Vehicle traffic-fines placeholder (real data source TBD)",
+)
+async def list_vehicle_fines(
+    vehicle_id: uuid.UUID,
+    service: Annotated[VehiclesService, Depends(get_vehicles_service)],
+    user: Annotated[User, Depends(get_current_user)],
+) -> MyCarListOut:
+    await service.check_ownership(user_id=user.id, vehicle_id=vehicle_id)
+    return MyCarListOut(vehicle_id=vehicle_id, items=[])

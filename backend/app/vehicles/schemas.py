@@ -10,7 +10,11 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.vehicles.models import SteeringSide, VerificationSource
+from app.vehicles.models import (
+    SteeringSide,
+    VehicleServiceLogKind,
+    VerificationSource,
+)
 
 # ---------------------------------------------------------------------------
 # Plate normalization
@@ -170,3 +174,52 @@ class VehicleRegisterOut(BaseModel):
 
 class VehicleDeleteOut(BaseModel):
     ok: Literal[True] = True
+
+
+# ---------------------------------------------------------------------------
+# Service history (session 7 stub, fleshed out in session 9)
+# ---------------------------------------------------------------------------
+
+
+class VehicleServiceLogOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    vehicle_id: uuid.UUID
+    kind: VehicleServiceLogKind
+    noted_at: datetime
+    note: str | None
+    mileage_km: int | None
+    cost_mnt: int | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class VehicleServiceHistoryOut(BaseModel):
+    items: list[VehicleServiceLogOut]
+
+
+# ---------------------------------------------------------------------------
+# My Car placeholders (session 7 stubs — real data sources blocked on
+# the government API decision; the endpoints are wired so the mobile
+# screens can render an empty list today)
+# ---------------------------------------------------------------------------
+
+
+class MyCarItemOut(BaseModel):
+    """Generic placeholder item shape for tax / insurance / fines responses.
+
+    Real data sources land in a later session; the schema is intentionally
+    loose so we don't lock ourselves into a wire shape before we know
+    which government feed we're parsing.
+    """
+
+    id: uuid.UUID
+    label: str
+    amount_mnt: int | None
+    due_at: datetime | None
+
+
+class MyCarListOut(BaseModel):
+    vehicle_id: uuid.UUID
+    items: list[MyCarItemOut]

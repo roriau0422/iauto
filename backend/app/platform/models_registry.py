@@ -27,6 +27,9 @@ from app.marketplace.models import (
 # -- media -------------------------------------------------------------------
 from app.media.models import MediaAsset
 
+# -- payments ----------------------------------------------------------------
+from app.payments.models import LedgerEntry, PaymentEvent, PaymentIntent
+
 # -- platform-owned tables (outbox, event archive) ---------------------------
 from app.platform.outbox import OutboxEvent
 
@@ -36,15 +39,19 @@ from app.vehicles.models import (
     VehicleLookupPlan,
     VehicleLookupReport,
     VehicleOwnership,
+    VehicleServiceLog,
 )
 
 __all__: list[str] = [
     "Business",
     "BusinessVehicleBrand",
     "Device",
+    "LedgerEntry",
     "MediaAsset",
     "OutboxEvent",
     "PartSearchRequest",
+    "PaymentEvent",
+    "PaymentIntent",
     "Quote",
     "RefreshToken",
     "Reservation",
@@ -58,4 +65,5 @@ __all__: list[str] = [
     "VehicleLookupReport",
     "VehicleModel",
     "VehicleOwnership",
+    "VehicleServiceLog",
 ]

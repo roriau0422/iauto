@@ -241,6 +241,51 @@ class VehicleLookupPlan(UuidPrimaryKey, Timestamped, Base):
     ttl_seconds: Mapped[int] = mapped_column(Integer, nullable=False, server_default="3600")
 
 
+class VehicleServiceLogKind(StrEnum):
+    """Categories of maintenance log entries per spec §9.3.
+
+    Stub set for session 7 — `oil/filter/tire/battery/misc` covers the
+    common cases. Session 9 may extend with more categories if product
+    needs them; that's an additive enum migration.
+    """
+
+    oil = "oil"
+    filter = "filter"
+    tire = "tire"
+    battery = "battery"
+    misc = "misc"
+
+
+class VehicleServiceLog(UuidPrimaryKey, Timestamped, Base):
+    """One service-history entry against a vehicle.
+
+    Session 7 ships this as a stub: the table + enum exist so the My Car
+    service-history endpoint can return an empty array; session 9 wires
+    the create flow per spec §9.3.
+    """
+
+    __tablename__ = "vehicle_service_logs"
+
+    vehicle_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("vehicles.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    kind: Mapped[VehicleServiceLogKind] = mapped_column(
+        SAEnum(
+            VehicleServiceLogKind,
+            name="vehicle_service_log_kind",
+            native_enum=True,
+        ),
+        nullable=False,
+    )
+    noted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    mileage_km: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    cost_mnt: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
 class VehicleLookupReport(UuidPrimaryKey, Timestamped, Base):
     """Record of a client-side XYP failure.
 

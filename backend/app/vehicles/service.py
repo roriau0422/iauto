@@ -176,6 +176,25 @@ class VehiclesService:
             raise NotFoundError("Vehicle not found")
         return vehicle
 
+    async def list_service_history(self, *, user_id: uuid.UUID, vehicle_id: uuid.UUID) -> list[Any]:
+        """Return service-history entries for a vehicle the user owns.
+
+        Session 7 ships this as a stub — the table exists and the
+        endpoint returns whatever rows are present (empty for now). The
+        full create flow ships in session 9.
+        """
+        from sqlalchemy import select as _select
+
+        from app.vehicles.models import VehicleServiceLog
+
+        await self.check_ownership(user_id=user_id, vehicle_id=vehicle_id)
+        result = await self.session.execute(
+            _select(VehicleServiceLog)
+            .where(VehicleServiceLog.vehicle_id == vehicle_id)
+            .order_by(VehicleServiceLog.noted_at.desc())
+        )
+        return list(result.scalars())
+
     async def unregister(self, *, user_id: uuid.UUID, vehicle_id: uuid.UUID) -> None:
         vehicle = await self.vehicles.get_by_id(vehicle_id)
         if vehicle is None:

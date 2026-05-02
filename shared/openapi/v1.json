@@ -593,6 +593,73 @@
         "title": "MediaUploadCreateOut",
         "type": "object"
       },
+      "MyCarItemOut": {
+        "description": "Generic placeholder item shape for tax / insurance / fines responses.\n\nReal data sources land in a later session; the schema is intentionally\nloose so we don't lock ourselves into a wire shape before we know\nwhich government feed we're parsing.",
+        "properties": {
+          "amount_mnt": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount Mnt"
+          },
+          "due_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "amount_mnt",
+          "due_at"
+        ],
+        "title": "MyCarItemOut",
+        "type": "object"
+      },
+      "MyCarListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MyCarItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "vehicle_id": {
+            "format": "uuid",
+            "title": "Vehicle Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "vehicle_id",
+          "items"
+        ],
+        "title": "MyCarListOut",
+        "type": "object"
+      },
       "OtpRequestIn": {
         "properties": {
           "phone": {
@@ -801,6 +868,211 @@
           "fulfilled"
         ],
         "title": "PartSearchStatus",
+        "type": "string"
+      },
+      "PaymentCheckOut": {
+        "properties": {
+          "intent": {
+            "$ref": "#/components/schemas/PaymentIntentOut"
+          },
+          "qpay_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qpay Status"
+          }
+        },
+        "required": [
+          "intent",
+          "qpay_status"
+        ],
+        "title": "PaymentCheckOut",
+        "type": "object"
+      },
+      "PaymentIntentCreateIn": {
+        "properties": {
+          "sale_id": {
+            "format": "uuid",
+            "title": "Sale Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sale_id"
+        ],
+        "title": "PaymentIntentCreateIn",
+        "type": "object"
+      },
+      "PaymentIntentCreatedOut": {
+        "description": "Response for `POST /v1/payments/intents`.\n\nEchoes the intent plus the QPay-issued payment surface (QR code text\n+ deeplink) so the client can immediately render either form factor.\nBoth fields are nullable because in dev with a fake QPay client we\nskip the real network round-trip.",
+        "properties": {
+          "deeplink": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deeplink"
+          },
+          "intent": {
+            "$ref": "#/components/schemas/PaymentIntentOut"
+          },
+          "qr_image_base64": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qr Image Base64"
+          },
+          "qr_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qr Text"
+          },
+          "urls": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Urls"
+          }
+        },
+        "required": [
+          "intent"
+        ],
+        "title": "PaymentIntentCreatedOut",
+        "type": "object"
+      },
+      "PaymentIntentOut": {
+        "properties": {
+          "amount_mnt": {
+            "title": "Amount Mnt",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_qpay_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Qpay Status"
+          },
+          "qpay_invoice_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qpay Invoice Id"
+          },
+          "sale_id": {
+            "format": "uuid",
+            "title": "Sale Id",
+            "type": "string"
+          },
+          "sender_invoice_no": {
+            "title": "Sender Invoice No",
+            "type": "string"
+          },
+          "settled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Settled At"
+          },
+          "status": {
+            "$ref": "#/components/schemas/PaymentIntentStatus"
+          },
+          "tenant_id": {
+            "format": "uuid",
+            "title": "Tenant Id",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenant_id",
+          "sale_id",
+          "amount_mnt",
+          "currency",
+          "qpay_invoice_id",
+          "sender_invoice_no",
+          "status",
+          "last_qpay_status",
+          "created_at",
+          "updated_at",
+          "settled_at"
+        ],
+        "title": "PaymentIntentOut",
+        "type": "object"
+      },
+      "PaymentIntentStatus": {
+        "description": "Lifecycle of a QPay invoice attempt.\n\n- `pending`   — invoice exists at QPay; awaiting customer payment.\n- `settled`   — QPay reports paid; ledger debit/credit pair posted.\n- `failed`    — QPay reports a permanent failure (rare in practice).\n- `cancelled` — driver/business cancelled before settlement.\n- `expired`   — QPay invoice TTL elapsed without payment.",
+        "enum": [
+          "pending",
+          "settled",
+          "failed",
+          "cancelled",
+          "expired"
+        ],
+        "title": "PaymentIntentStatus",
         "type": "string"
       },
       "QuoteCondition": {
@@ -1994,6 +2266,112 @@
           "already_owned"
         ],
         "title": "VehicleRegisterOut",
+        "type": "object"
+      },
+      "VehicleServiceHistoryOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/VehicleServiceLogOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "VehicleServiceHistoryOut",
+        "type": "object"
+      },
+      "VehicleServiceLogKind": {
+        "description": "Categories of maintenance log entries per spec §9.3.\n\nStub set for session 7 — `oil/filter/tire/battery/misc` covers the\ncommon cases. Session 9 may extend with more categories if product\nneeds them; that's an additive enum migration.",
+        "enum": [
+          "oil",
+          "filter",
+          "tire",
+          "battery",
+          "misc"
+        ],
+        "title": "VehicleServiceLogKind",
+        "type": "string"
+      },
+      "VehicleServiceLogOut": {
+        "properties": {
+          "cost_mnt": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Mnt"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/VehicleServiceLogKind"
+          },
+          "mileage_km": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mileage Km"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "noted_at": {
+            "format": "date-time",
+            "title": "Noted At",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "vehicle_id": {
+            "format": "uuid",
+            "title": "Vehicle Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "vehicle_id",
+          "kind",
+          "noted_at",
+          "note",
+          "mileage_km",
+          "cost_mnt",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "VehicleServiceLogOut",
         "type": "object"
       },
       "VerificationSource": {
@@ -4183,6 +4561,183 @@
         ]
       }
     },
+    "/v1/payments/intents": {
+      "post": {
+        "operationId": "create_intent_v1_payments_intents_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentIntentCreateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentIntentCreatedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Driver requests a QPay invoice for one of their sales",
+        "tags": [
+          "payments"
+        ]
+      }
+    },
+    "/v1/payments/intents/{intent_id}": {
+      "get": {
+        "operationId": "get_intent_v1_payments_intents__intent_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "intent_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Intent Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentIntentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read a payment intent (driver or selling business only)",
+        "tags": [
+          "payments"
+        ]
+      }
+    },
+    "/v1/payments/intents/{intent_id}/check": {
+      "post": {
+        "operationId": "check_intent_v1_payments_intents__intent_id__check_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "intent_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Intent Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentCheckOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Force a /v2/payment/check poll against QPay (driver or business)",
+        "tags": [
+          "payments"
+        ]
+      }
+    },
     "/v1/ready": {
       "get": {
         "operationId": "ready_v1_ready_get",
@@ -4454,6 +5009,242 @@
           }
         },
         "summary": "Unregister a vehicle (owner-only, leaves the vehicle row intact)",
+        "tags": [
+          "vehicles"
+        ]
+      }
+    },
+    "/v1/vehicles/{vehicle_id}/fines": {
+      "get": {
+        "operationId": "list_vehicle_fines_v1_vehicles__vehicle_id__fines_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "vehicle_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Vehicle Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyCarListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Vehicle traffic-fines placeholder (real data source TBD)",
+        "tags": [
+          "vehicles"
+        ]
+      }
+    },
+    "/v1/vehicles/{vehicle_id}/insurance": {
+      "get": {
+        "operationId": "list_vehicle_insurance_v1_vehicles__vehicle_id__insurance_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "vehicle_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Vehicle Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyCarListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Vehicle insurance placeholder (real data source TBD)",
+        "tags": [
+          "vehicles"
+        ]
+      }
+    },
+    "/v1/vehicles/{vehicle_id}/service-history": {
+      "get": {
+        "operationId": "list_service_history_v1_vehicles__vehicle_id__service_history_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "vehicle_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Vehicle Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleServiceHistoryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List the vehicle's service-history entries (owner only)",
+        "tags": [
+          "vehicles"
+        ]
+      }
+    },
+    "/v1/vehicles/{vehicle_id}/tax": {
+      "get": {
+        "operationId": "list_vehicle_tax_v1_vehicles__vehicle_id__tax_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "vehicle_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Vehicle Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyCarListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Vehicle tax obligations placeholder (real data source TBD)",
         "tags": [
           "vehicles"
         ]
