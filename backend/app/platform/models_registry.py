@@ -39,6 +39,9 @@ from app.payments.models import LedgerEntry, PaymentEvent, PaymentIntent
 # -- platform-owned tables (outbox, event archive) ---------------------------
 from app.platform.outbox import OutboxEvent
 
+# -- story -------------------------------------------------------------------
+from app.story.models import StoryComment, StoryLike, StoryPost
+
 # -- vehicles ----------------------------------------------------------------
 from app.vehicles.models import (
     Vehicle,
@@ -70,6 +73,9 @@ __all__: list[str] = [
     "Reservation",
     "Review",
     "Sale",
+    "StoryComment",
+    "StoryLike",
+    "StoryPost",
     "User",
     "Vehicle",
     "VehicleBrand",
