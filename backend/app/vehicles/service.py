@@ -21,6 +21,7 @@ from app.vehicles.events import (
     VehicleOwnershipAdded,
     VehicleOwnershipRemoved,
     VehicleRegistered,
+    VehicleServiceLogged,
 )
 from app.vehicles.models import (
     Vehicle,
@@ -177,12 +178,7 @@ class VehiclesService:
         return vehicle
 
     async def list_service_history(self, *, user_id: uuid.UUID, vehicle_id: uuid.UUID) -> list[Any]:
-        """Return service-history entries for a vehicle the user owns.
-
-        Session 7 ships this as a stub — the table exists and the
-        endpoint returns whatever rows are present (empty for now). The
-        full create flow ships in session 9.
-        """
+        """Return service-history entries for a vehicle the user owns."""
         from sqlalchemy import select as _select
 
         from app.vehicles.models import VehicleServiceLog
@@ -194,6 +190,60 @@ class VehiclesService:
             .order_by(VehicleServiceLog.noted_at.desc())
         )
         return list(result.scalars())
+
+    async def add_service_log(
+        self,
+        *,
+        user_id: uuid.UUID,
+        vehicle_id: uuid.UUID,
+        payload: Any,
+    ) -> Any:
+        """Append a service-history entry (spec §9.3)."""
+        from app.vehicles.models import VehicleServiceLog
+
+        await self.check_ownership(user_id=user_id, vehicle_id=vehicle_id)
+        log = VehicleServiceLog(
+            vehicle_id=vehicle_id,
+            kind=payload.kind,
+            noted_at=payload.noted_at,
+            title=payload.title,
+            note=payload.note,
+            mileage_km=payload.mileage_km,
+            cost_mnt=payload.cost_mnt,
+            location=payload.location,
+        )
+        self.session.add(log)
+        await self.session.flush()
+        write_outbox_event(
+            self.session,
+            VehicleServiceLogged(
+                aggregate_id=log.id,
+                vehicle_id=vehicle_id,
+                user_id=user_id,
+                kind=payload.kind.value,
+            ),
+        )
+        logger.info(
+            "service_log_added",
+            log_id=str(log.id),
+            vehicle_id=str(vehicle_id),
+            kind=payload.kind.value,
+        )
+        return log
+
+    async def delete_service_log(
+        self, *, user_id: uuid.UUID, vehicle_id: uuid.UUID, log_id: uuid.UUID
+    ) -> None:
+        """Owner-only delete; opaque 404 across ownership."""
+        from app.vehicles.models import VehicleServiceLog
+
+        await self.check_ownership(user_id=user_id, vehicle_id=vehicle_id)
+        log = await self.session.get(VehicleServiceLog, log_id)
+        if log is None or log.vehicle_id != vehicle_id:
+            raise NotFoundError("Service log not found")
+        await self.session.delete(log)
+        await self.session.flush()
+        logger.info("service_log_deleted", log_id=str(log_id))
 
     async def unregister(self, *, user_id: uuid.UUID, vehicle_id: uuid.UUID) -> None:
         vehicle = await self.vehicles.get_by_id(vehicle_id)

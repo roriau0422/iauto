@@ -6,6 +6,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Response, status
+from fastapi.responses import StreamingResponse
 
 from app.identity.dependencies import get_current_user
 from app.identity.models import User
@@ -22,6 +23,8 @@ from app.vehicles.schemas import (
     VehicleRegisterIn,
     VehicleRegisterOut,
     VehicleServiceHistoryOut,
+    VehicleServiceLogCreateIn,
+    VehicleServiceLogDeleteOut,
     VehicleServiceLogOut,
 )
 from app.vehicles.service import VehiclesService
@@ -148,6 +151,69 @@ async def list_service_history(
 ) -> VehicleServiceHistoryOut:
     rows = await service.list_service_history(user_id=user.id, vehicle_id=vehicle_id)
     return VehicleServiceHistoryOut(items=[VehicleServiceLogOut.model_validate(r) for r in rows])
+
+
+@router.post(
+    "/vehicles/{vehicle_id}/service-history",
+    response_model=VehicleServiceLogOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Append a service-history entry (owner only)",
+)
+async def add_service_log(
+    vehicle_id: uuid.UUID,
+    body: VehicleServiceLogCreateIn,
+    service: Annotated[VehiclesService, Depends(get_vehicles_service)],
+    user: Annotated[User, Depends(get_current_user)],
+) -> VehicleServiceLogOut:
+    log = await service.add_service_log(user_id=user.id, vehicle_id=vehicle_id, payload=body)
+    return VehicleServiceLogOut.model_validate(log)
+
+
+@router.delete(
+    "/vehicles/{vehicle_id}/service-history/{log_id}",
+    response_model=VehicleServiceLogDeleteOut,
+    summary="Delete a service-history entry (owner only)",
+)
+async def delete_service_log(
+    vehicle_id: uuid.UUID,
+    log_id: uuid.UUID,
+    service: Annotated[VehiclesService, Depends(get_vehicles_service)],
+    user: Annotated[User, Depends(get_current_user)],
+) -> VehicleServiceLogDeleteOut:
+    await service.delete_service_log(user_id=user.id, vehicle_id=vehicle_id, log_id=log_id)
+    return VehicleServiceLogDeleteOut()
+
+
+@router.get(
+    "/vehicles/{vehicle_id}/service-history.pdf",
+    summary="Server-rendered PDF of the vehicle's service history (owner only)",
+    include_in_schema=True,
+)
+async def service_history_pdf(
+    vehicle_id: uuid.UUID,
+    service: Annotated[VehiclesService, Depends(get_vehicles_service)],
+    user: Annotated[User, Depends(get_current_user)],
+) -> StreamingResponse:
+    from io import BytesIO
+
+    from app.vehicles.pdf import render_service_history_pdf
+
+    vehicle = await service.check_ownership(user_id=user.id, vehicle_id=vehicle_id)
+    rows = await service.list_service_history(user_id=user.id, vehicle_id=vehicle_id)
+    pdf_bytes = render_service_history_pdf(
+        plate=vehicle.plate,
+        make=vehicle.make,
+        model=vehicle.model,
+        logs=rows,
+    )
+    return StreamingResponse(
+        BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": (f'attachment; filename="service-history-{vehicle_id}.pdf"'),
+            "Cache-Control": "private, no-store",
+        },
+    )
 
 
 @router.get(

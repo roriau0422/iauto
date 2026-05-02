@@ -259,9 +259,8 @@ class VehicleServiceLogKind(StrEnum):
 class VehicleServiceLog(UuidPrimaryKey, Timestamped, Base):
     """One service-history entry against a vehicle.
 
-    Session 7 ships this as a stub: the table + enum exist so the My Car
-    service-history endpoint can return an empty array; session 9 wires
-    the create flow per spec §9.3.
+    Spec §9.3: maintenance log per vehicle, categorized by kind. Session
+    9 fleshes out the model + create/delete endpoints + PDF export.
     """
 
     __tablename__ = "vehicle_service_logs"
@@ -281,9 +280,11 @@ class VehicleServiceLog(UuidPrimaryKey, Timestamped, Base):
         nullable=False,
     )
     noted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    title: Mapped[str | None] = mapped_column(Text, nullable=True)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     mileage_km: Mapped[int | None] = mapped_column(Integer, nullable=True)
     cost_mnt: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    location: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class VehicleLookupReport(UuidPrimaryKey, Timestamped, Base):

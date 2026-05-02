@@ -188,15 +188,39 @@ class VehicleServiceLogOut(BaseModel):
     vehicle_id: uuid.UUID
     kind: VehicleServiceLogKind
     noted_at: datetime
+    title: str | None
     note: str | None
     mileage_km: int | None
     cost_mnt: int | None
+    location: str | None
     created_at: datetime
     updated_at: datetime
 
 
 class VehicleServiceHistoryOut(BaseModel):
     items: list[VehicleServiceLogOut]
+
+
+class VehicleServiceLogCreateIn(BaseModel):
+    kind: VehicleServiceLogKind
+    noted_at: datetime
+    title: str | None = Field(default=None, max_length=200)
+    note: str | None = Field(default=None, max_length=2000)
+    mileage_km: int | None = Field(default=None, ge=0, le=10_000_000)
+    cost_mnt: int | None = Field(default=None, ge=0, le=999_999_999)
+    location: str | None = Field(default=None, max_length=500)
+
+    @field_validator("title", "note", "location")
+    @classmethod
+    def _trim_text(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        trimmed = v.strip()
+        return trimmed or None
+
+
+class VehicleServiceLogDeleteOut(BaseModel):
+    ok: Literal[True] = True
 
 
 # ---------------------------------------------------------------------------

@@ -30,6 +30,9 @@ from app.marketplace.models import (
 # -- media -------------------------------------------------------------------
 from app.media.models import MediaAsset
 
+# -- notifications -----------------------------------------------------------
+from app.notifications.models import NotificationDispatch
+
 # -- payments ----------------------------------------------------------------
 from app.payments.models import LedgerEntry, PaymentEvent, PaymentIntent
 
@@ -53,6 +56,7 @@ __all__: list[str] = [
     "Device",
     "LedgerEntry",
     "MediaAsset",
+    "NotificationDispatch",
     "OutboxEvent",
     "PartSearchRequest",
     "PaymentEvent",

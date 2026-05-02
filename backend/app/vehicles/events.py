@@ -43,3 +43,13 @@ class VehicleLookupFailed(DomainEvent):
     status_code: int
     plan_version: str | None
     plate_masked: str
+
+
+class VehicleServiceLogged(DomainEvent):
+    """A service-history entry was added to a vehicle (spec §9.3)."""
+
+    event_type: Literal["vehicles.service_logged"] = "vehicles.service_logged"
+    aggregate_type: Literal["vehicle_service_log"] = "vehicle_service_log"
+    vehicle_id: uuid.UUID
+    user_id: uuid.UUID
+    kind: str

@@ -885,6 +885,126 @@
         "title": "MyCarListOut",
         "type": "object"
       },
+      "NotificationDispatchListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationDispatchOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "NotificationDispatchListOut",
+        "type": "object"
+      },
+      "NotificationDispatchOut": {
+        "properties": {
+          "body_text": {
+            "title": "Body Text",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "device_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Id"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "title": "Payload",
+            "type": "object"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/NotificationProvider"
+          },
+          "status": {
+            "$ref": "#/components/schemas/NotificationStatus"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "user_id",
+          "device_id",
+          "kind",
+          "provider",
+          "body_text",
+          "payload",
+          "status",
+          "error",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "NotificationDispatchOut",
+        "type": "object"
+      },
+      "NotificationProvider": {
+        "enum": [
+          "fcm",
+          "apns",
+          "console"
+        ],
+        "title": "NotificationProvider",
+        "type": "string"
+      },
+      "NotificationStatus": {
+        "enum": [
+          "queued",
+          "sent",
+          "failed"
+        ],
+        "title": "NotificationStatus",
+        "type": "string"
+      },
       "OtpRequestIn": {
         "properties": {
           "phone": {
@@ -2509,6 +2629,98 @@
         "title": "VehicleServiceHistoryOut",
         "type": "object"
       },
+      "VehicleServiceLogCreateIn": {
+        "properties": {
+          "cost_mnt": {
+            "anyOf": [
+              {
+                "maximum": 999999999.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Mnt"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/VehicleServiceLogKind"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "mileage_km": {
+            "anyOf": [
+              {
+                "maximum": 10000000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mileage Km"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "noted_at": {
+            "format": "date-time",
+            "title": "Noted At",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "kind",
+          "noted_at"
+        ],
+        "title": "VehicleServiceLogCreateIn",
+        "type": "object"
+      },
+      "VehicleServiceLogDeleteOut": {
+        "properties": {
+          "ok": {
+            "const": true,
+            "default": true,
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "title": "VehicleServiceLogDeleteOut",
+        "type": "object"
+      },
       "VehicleServiceLogKind": {
         "description": "Categories of maintenance log entries per spec §9.3.\n\nStub set for session 7 — `oil/filter/tire/battery/misc` covers the\ncommon cases. Session 9 may extend with more categories if product\nneeds them; that's an additive enum migration.",
         "enum": [
@@ -2547,6 +2759,17 @@
           "kind": {
             "$ref": "#/components/schemas/VehicleServiceLogKind"
           },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
           "mileage_km": {
             "anyOf": [
               {
@@ -2574,6 +2797,17 @@
             "title": "Noted At",
             "type": "string"
           },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
           "updated_at": {
             "format": "date-time",
             "title": "Updated At",
@@ -2590,9 +2824,11 @@
           "vehicle_id",
           "kind",
           "noted_at",
+          "title",
           "note",
           "mileage_km",
           "cost_mnt",
+          "location",
           "created_at",
           "updated_at"
         ],
@@ -5072,6 +5308,78 @@
         ]
       }
     },
+    "/v1/notifications/mine": {
+      "get": {
+        "operationId": "list_my_notifications_v1_notifications_mine_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationDispatchListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Caller's own push-dispatch history (newest first)",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
     "/v1/payments/intents": {
       "post": {
         "operationId": "create_intent_v1_payments_intents_post",
@@ -5697,6 +6005,199 @@
           }
         },
         "summary": "List the vehicle's service-history entries (owner only)",
+        "tags": [
+          "vehicles"
+        ]
+      },
+      "post": {
+        "operationId": "add_service_log_v1_vehicles__vehicle_id__service_history_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "vehicle_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Vehicle Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VehicleServiceLogCreateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleServiceLogOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Append a service-history entry (owner only)",
+        "tags": [
+          "vehicles"
+        ]
+      }
+    },
+    "/v1/vehicles/{vehicle_id}/service-history.pdf": {
+      "get": {
+        "operationId": "service_history_pdf_v1_vehicles__vehicle_id__service_history_pdf_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "vehicle_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Vehicle Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Server-rendered PDF of the vehicle's service history (owner only)",
+        "tags": [
+          "vehicles"
+        ]
+      }
+    },
+    "/v1/vehicles/{vehicle_id}/service-history/{log_id}": {
+      "delete": {
+        "operationId": "delete_service_log_v1_vehicles__vehicle_id__service_history__log_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "vehicle_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Vehicle Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "log_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Log Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleServiceLogDeleteOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete a service-history entry (owner only)",
         "tags": [
           "vehicles"
         ]

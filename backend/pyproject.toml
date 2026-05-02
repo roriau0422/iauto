@@ -31,6 +31,7 @@ dependencies = [
   "httpx>=0.28",
   "tenacity>=9.0",
   "boto3>=1.35",            # S3-compatible client (talks to MinIO via endpoint_url)
+  "reportlab>=4.0",         # PDF rendering for service-history exports
 
   # Logging
   "structlog>=24.4",
@@ -142,6 +143,7 @@ ignore_errors = true
 module = [
   "arq.*",
   "botocore.*",
+  "reportlab.*",
 ]
 ignore_missing_imports = true
 
