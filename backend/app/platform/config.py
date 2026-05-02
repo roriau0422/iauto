@@ -142,6 +142,11 @@ class Settings(BaseSettings):
     # Live LLM calls in the test suite are gated. Default off so CI never
     # burns tokens; flip to `1` in `backend/.env` to run live smoke tests.
     ai_live_tests: bool = False
+    # Daily AI spend budget in micro-MNT. The cost-alert cron sums the
+    # trailing 24h of `ai_spend_events` and pages OPERATOR_PHONE if the
+    # total exceeds this value. 0 disables the alert (cron still logs
+    # the daily summary). Default 5000 MNT/day = 5_000_000_000 micro.
+    ai_daily_spend_budget_micro_mnt: int = 5_000_000_000
 
     # Observability
     sentry_dsn: str | None = None

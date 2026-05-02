@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from app.admin.router import router as admin_router
 from app.ads.router import router as ads_router
 from app.ai_mechanic.router import router as ai_mechanic_router
 from app.api.v1 import health
@@ -25,6 +26,7 @@ from app.warehouse.router import router as warehouse_router
 
 api_router = APIRouter(prefix="/v1")
 api_router.include_router(health.router)
+api_router.include_router(admin_router)
 api_router.include_router(ads_router)
 api_router.include_router(ai_mechanic_router)
 api_router.include_router(businesses_router)

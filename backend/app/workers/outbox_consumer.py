@@ -27,7 +27,11 @@ from app.platform.db import build_engine, build_sessionmaker
 from app.platform.events import DomainEvent
 from app.platform.logging import configure_logging, get_logger
 from app.platform.outbox import OutboxEvent, get_handlers
-from app.workers import reservations as reservations_worker, valuation as valuation_worker
+from app.workers import (
+    cost_alert as cost_alert_worker,
+    reservations as reservations_worker,
+    valuation as valuation_worker,
+)
 
 logger = get_logger("app.workers.outbox")
 
@@ -148,6 +152,14 @@ async def valuation_retrain_tick(ctx: dict[str, Any]) -> int:
     return await valuation_worker.run_once(session_factory)
 
 
+async def ai_cost_alert_tick(ctx: dict[str, Any]) -> int:
+    """Cron entry point that pages the operator if 24h AI spend is over
+    the configured budget. Returns the trailing-24h spend in micro-MNT
+    regardless of whether an alert was sent."""
+    session_factory: async_sessionmaker[AsyncSession] = ctx["session_factory"]
+    return await cost_alert_worker.run_once(session_factory)
+
+
 async def startup(ctx: dict[str, Any]) -> None:
     settings = get_settings()
     configure_logging(settings)
@@ -204,6 +216,7 @@ class WorkerSettings:
         tick,
         reservation_expiry_tick,
         valuation_retrain_tick,
+        ai_cost_alert_tick,
     ]
     on_startup = staticmethod(startup)
     on_shutdown = staticmethod(shutdown)
@@ -243,6 +256,18 @@ class WorkerSettings:
             # Training is CPU-bound; give it a generous timeout but not
             # unbounded so a wedged run doesn't hold the worker forever.
             timeout=900,
+            keep_result=0,
+        ),
+        cron(
+            ai_cost_alert_tick,
+            name="ai_cost_alert_tick",
+            # 05:00 UTC — after retrain (02:00 UTC) so the daily summary
+            # captures any token costs from the trainer's embedding work.
+            hour={5},
+            minute={0},
+            second={0},
+            run_at_startup=False,
+            timeout=60,
             keep_result=0,
         ),
     ]

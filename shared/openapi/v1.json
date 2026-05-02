@@ -3271,6 +3271,98 @@
         "title": "SkuUpdateIn",
         "type": "object"
       },
+      "SpendByModelOut": {
+        "properties": {
+          "audio_seconds": {
+            "title": "Audio Seconds",
+            "type": "integer"
+          },
+          "completion_tokens": {
+            "title": "Completion Tokens",
+            "type": "integer"
+          },
+          "micro_mnt": {
+            "title": "Micro Mnt",
+            "type": "integer"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "prompt_tokens": {
+            "title": "Prompt Tokens",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "model",
+          "prompt_tokens",
+          "completion_tokens",
+          "audio_seconds",
+          "micro_mnt"
+        ],
+        "title": "SpendByModelOut",
+        "type": "object"
+      },
+      "SpendByUserOut": {
+        "properties": {
+          "micro_mnt": {
+            "title": "Micro Mnt",
+            "type": "integer"
+          },
+          "requests": {
+            "title": "Requests",
+            "type": "integer"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "requests",
+          "micro_mnt"
+        ],
+        "title": "SpendByUserOut",
+        "type": "object"
+      },
+      "SpendReportOut": {
+        "description": "Trailing-window AI spend report.\n\n`window_hours` is the number of hours covered (24, 168, ...).\n`total_micro_mnt` is the sum across every recorded event in the\nwindow. Per-model + top-user breakdowns help spot cost regressions\nquickly.",
+        "properties": {
+          "by_model": {
+            "items": {
+              "$ref": "#/components/schemas/SpendByModelOut"
+            },
+            "title": "By Model",
+            "type": "array"
+          },
+          "top_users": {
+            "items": {
+              "$ref": "#/components/schemas/SpendByUserOut"
+            },
+            "title": "Top Users",
+            "type": "array"
+          },
+          "total_micro_mnt": {
+            "title": "Total Micro Mnt",
+            "type": "integer"
+          },
+          "window_hours": {
+            "title": "Window Hours",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "window_hours",
+          "total_micro_mnt",
+          "by_model",
+          "top_users"
+        ],
+        "title": "SpendReportOut",
+        "type": "object"
+      },
       "SteeringSide": {
         "description": "Steering-wheel / drive-side layout of a physical car.\n\nMongolia has a mixed fleet: Japanese imports are overwhelmingly RHD\n(steering on the right), while Korean / German / US / Chinese imports\nare LHD. Business coverage tables (session 5) use this as a filter so\na shop stocking LHD Tiguan parts doesn't get searches for RHD Prii.\n\nMapping from the XYP `wheelPosition` field:\n    \"Зүүн\"  (Mongolian for \"left\")  → LHD\n    \"Баруун\" (Mongolian for \"right\") → RHD",
         "enum": [
@@ -5284,6 +5376,67 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/v1/admin/spend": {
+      "get": {
+        "operationId": "spend_report_v1_admin_spend_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "window_hours",
+            "required": false,
+            "schema": {
+              "default": 24,
+              "maximum": 720,
+              "minimum": 1,
+              "title": "Window Hours",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpendReportOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Trailing-window AI spend report (admin only)",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/v1/ads/active": {
       "get": {
         "operationId": "list_active_v1_ads_active_get",
