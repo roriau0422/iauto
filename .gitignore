@@ -75,3 +75,8 @@ tmp/
 .claude/
 tasks/
 CLAUDE.md
+
+# VSCodeCounter
+.VSCodeCounter/
+
+_design_source/
