@@ -142,6 +142,15 @@ async def startup(ctx: dict[str, Any]) -> None:
     engine = build_engine(settings)
     ctx["engine"] = engine
     ctx["session_factory"] = build_sessionmaker(engine)
+
+    # Outbox subscribers — register before the first tick fires.
+    # Imported lazily to avoid module-import-time side effects on the
+    # main API process when only the worker runs.
+    from app.chat.handlers import register as register_chat_handlers
+    from app.platform.cache import init_redis
+
+    await init_redis(settings)
+    register_chat_handlers()
     logger.info("outbox_worker_started")
 
 

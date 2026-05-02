@@ -12,6 +12,9 @@ from app.businesses.models import Business, BusinessVehicleBrand
 # -- catalog -----------------------------------------------------------------
 from app.catalog.models import VehicleBrand, VehicleCountry, VehicleModel
 
+# -- chat --------------------------------------------------------------------
+from app.chat.models import ChatMessage, ChatThread
+
 # -- identity ----------------------------------------------------------------
 from app.identity.models import Device, RefreshToken, User
 
@@ -45,6 +48,8 @@ from app.vehicles.models import (
 __all__: list[str] = [
     "Business",
     "BusinessVehicleBrand",
+    "ChatMessage",
+    "ChatThread",
     "Device",
     "LedgerEntry",
     "MediaAsset",

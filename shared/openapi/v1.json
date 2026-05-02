@@ -179,6 +179,231 @@
         "title": "BusinessUpdateIn",
         "type": "object"
       },
+      "ChatMessageCreateIn": {
+        "description": "Body for `POST /v1/chat/threads/{id}/messages`.\n\nSystem messages can't be created by API callers — that path is\nserver-internal. Media messages take a confirmed `media_asset_id`\nthat the caller owns.",
+        "properties": {
+          "body": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body"
+          },
+          "kind": {
+            "enum": [
+              "text",
+              "media"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "media_asset_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Media Asset Id"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "ChatMessageCreateIn",
+        "type": "object"
+      },
+      "ChatMessageKind": {
+        "description": "Three kinds of chat messages.\n\n- `text`   — free-form body, written by a human party (driver or business).\n- `media`  — body may or may not be set; payload is the FK to a confirmed\n             media_asset.\n- `system` — server-generated notice (thread auto-created, reservation\n             started, etc). No author.",
+        "enum": [
+          "text",
+          "media",
+          "system"
+        ],
+        "title": "ChatMessageKind",
+        "type": "string"
+      },
+      "ChatMessageListOut": {
+        "properties": {
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ChatMessageOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items",
+          "has_more"
+        ],
+        "title": "ChatMessageListOut",
+        "type": "object"
+      },
+      "ChatMessageOut": {
+        "properties": {
+          "author_user_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author User Id"
+          },
+          "body": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ChatMessageKind"
+          },
+          "media_asset_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Media Asset Id"
+          },
+          "thread_id": {
+            "format": "uuid",
+            "title": "Thread Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "thread_id",
+          "author_user_id",
+          "kind",
+          "body",
+          "media_asset_id",
+          "created_at"
+        ],
+        "title": "ChatMessageOut",
+        "type": "object"
+      },
+      "ChatThreadListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ChatThreadOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "ChatThreadListOut",
+        "type": "object"
+      },
+      "ChatThreadOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "driver_id": {
+            "format": "uuid",
+            "title": "Driver Id",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_message_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Message At"
+          },
+          "part_search_id": {
+            "format": "uuid",
+            "title": "Part Search Id",
+            "type": "string"
+          },
+          "quote_id": {
+            "format": "uuid",
+            "title": "Quote Id",
+            "type": "string"
+          },
+          "tenant_id": {
+            "format": "uuid",
+            "title": "Tenant Id",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenant_id",
+          "quote_id",
+          "part_search_id",
+          "driver_id",
+          "last_message_at",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ChatThreadOut",
+        "type": "object"
+      },
       "DeviceInfoIn": {
         "properties": {
           "label": {
@@ -3085,6 +3310,292 @@
         "summary": "List vehicle models (optionally filtered by brand)",
         "tags": [
           "catalog"
+        ]
+      }
+    },
+    "/v1/chat/threads": {
+      "get": {
+        "operationId": "list_threads_v1_chat_threads_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatThreadListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List the caller's chat threads (driver or business)",
+        "tags": [
+          "chat"
+        ]
+      }
+    },
+    "/v1/chat/threads/{thread_id}": {
+      "get": {
+        "operationId": "get_thread_v1_chat_threads__thread_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "thread_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Thread Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatThreadOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read a single thread (party-gated)",
+        "tags": [
+          "chat"
+        ]
+      }
+    },
+    "/v1/chat/threads/{thread_id}/messages": {
+      "get": {
+        "operationId": "list_messages_v1_chat_threads__thread_id__messages_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "thread_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Thread Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "before_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Before Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatMessageListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Paginated message history (newest first; before_id cursors backward)",
+        "tags": [
+          "chat"
+        ]
+      },
+      "post": {
+        "operationId": "post_message_v1_chat_threads__thread_id__messages_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "thread_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Thread Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatMessageCreateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatMessageOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Append a message to a thread",
+        "tags": [
+          "chat"
         ]
       }
     },

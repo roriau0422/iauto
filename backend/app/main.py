@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1 import api_router as v1_router
+from app.chat.handlers import register as register_chat_handlers
 from app.platform.cache import dispose_redis, init_redis
 from app.platform.config import Settings, get_settings
 from app.platform.db import dispose_db, init_db
@@ -30,6 +31,10 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
     await init_db(settings)
     await init_redis(settings)
+
+    # Outbox subscribers — register before the first request lands so the
+    # worker (run in a separate process) and the API both see them.
+    register_chat_handlers()
 
     logger.info("startup_complete")
     try:
