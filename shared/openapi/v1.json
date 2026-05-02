@@ -3841,6 +3841,188 @@
         "title": "ValidationError",
         "type": "object"
       },
+      "ValuationEstimateIn": {
+        "properties": {
+          "build_year": {
+            "maximum": 2100.0,
+            "minimum": 1900.0,
+            "title": "Build Year",
+            "type": "integer"
+          },
+          "condition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QuoteCondition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fuel_type": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fuel Type"
+          },
+          "mileage_km": {
+            "anyOf": [
+              {
+                "maximum": 10000000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mileage Km"
+          },
+          "vehicle_brand_id": {
+            "format": "uuid",
+            "title": "Vehicle Brand Id",
+            "type": "string"
+          },
+          "vehicle_model_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vehicle Model Id"
+          }
+        },
+        "required": [
+          "vehicle_brand_id",
+          "build_year"
+        ],
+        "title": "ValuationEstimateIn",
+        "type": "object"
+      },
+      "ValuationEstimateOut": {
+        "description": "Response shape for `POST /v1/valuation/estimate`.",
+        "properties": {
+          "high_mnt": {
+            "title": "High Mnt",
+            "type": "integer"
+          },
+          "is_heuristic_fallback": {
+            "title": "Is Heuristic Fallback",
+            "type": "boolean"
+          },
+          "low_mnt": {
+            "title": "Low Mnt",
+            "type": "integer"
+          },
+          "model_version": {
+            "title": "Model Version",
+            "type": "string"
+          },
+          "predicted_mnt": {
+            "title": "Predicted Mnt",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "predicted_mnt",
+          "low_mnt",
+          "high_mnt",
+          "model_version",
+          "is_heuristic_fallback"
+        ],
+        "title": "ValuationEstimateOut",
+        "type": "object"
+      },
+      "ValuationModelOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "feature_columns": {
+            "items": {},
+            "title": "Feature Columns",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "mae_mnt": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mae Mnt"
+          },
+          "sample_count": {
+            "title": "Sample Count",
+            "type": "integer"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ValuationModelStatus"
+          },
+          "trained_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trained At"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "status",
+          "trained_at",
+          "sample_count",
+          "mae_mnt",
+          "feature_columns",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ValuationModelOut",
+        "type": "object"
+      },
+      "ValuationModelStatus": {
+        "enum": [
+          "training",
+          "active",
+          "retired"
+        ],
+        "title": "ValuationModelStatus",
+        "type": "string"
+      },
       "VehicleBrandCoverageIn": {
         "description": "One entry in a business's coverage set.\n\n`year_start`/`year_end` are inclusive bounds on vehicle.build_year.\nEither can be NULL; NULL-NULL means \"every year this brand has ever\nbeen made\". `steering_side` NULL accepts both LHD and RHD.",
         "properties": {
@@ -9575,6 +9757,86 @@
         "summary": "Like a post (idempotent — 409 on second like)",
         "tags": [
           "story"
+        ]
+      }
+    },
+    "/v1/valuation/estimate": {
+      "post": {
+        "operationId": "estimate_v1_valuation_estimate_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValuationEstimateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValuationEstimateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Estimate a vehicle's market price (CatBoost or heuristic fallback)",
+        "tags": [
+          "valuation"
+        ]
+      }
+    },
+    "/v1/valuation/models/active": {
+      "get": {
+        "operationId": "active_model_v1_valuation_models_active_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValuationModelOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Return the currently-active CatBoost model row, if any",
+        "tags": [
+          "valuation"
         ]
       }
     },

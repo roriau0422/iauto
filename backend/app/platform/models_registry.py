@@ -58,6 +58,9 @@ from app.platform.outbox import OutboxEvent
 # -- story -------------------------------------------------------------------
 from app.story.models import StoryComment, StoryLike, StoryPost
 
+# -- valuation ---------------------------------------------------------------
+from app.valuation.models import ValuationEstimate, ValuationModel
+
 # -- vehicles ----------------------------------------------------------------
 from app.vehicles.models import (
     Vehicle,
@@ -105,6 +108,8 @@ __all__: list[str] = [
     "StoryLike",
     "StoryPost",
     "User",
+    "ValuationEstimate",
+    "ValuationModel",
     "Vehicle",
     "VehicleBrand",
     "VehicleCountry",

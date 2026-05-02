@@ -27,7 +27,7 @@ from app.platform.db import build_engine, build_sessionmaker
 from app.platform.events import DomainEvent
 from app.platform.logging import configure_logging, get_logger
 from app.platform.outbox import OutboxEvent, get_handlers
-from app.workers import reservations as reservations_worker
+from app.workers import reservations as reservations_worker, valuation as valuation_worker
 
 logger = get_logger("app.workers.outbox")
 
@@ -136,6 +136,18 @@ async def reservation_expiry_tick(ctx: dict[str, Any]) -> int:
     return await reservations_worker.run_once(session_factory)
 
 
+async def valuation_retrain_tick(ctx: dict[str, Any]) -> int:
+    """Cron entry point that retrains the CatBoost valuation model.
+
+    Pulls every sale joined with the underlying vehicle, fits a new
+    booster, evaluates MAE on a holdout, ships the artifact to MinIO,
+    and promotes the new row to `active`. Skips when the corpus is
+    too thin — the heuristic stays the served path.
+    """
+    session_factory: async_sessionmaker[AsyncSession] = ctx["session_factory"]
+    return await valuation_worker.run_once(session_factory)
+
+
 async def startup(ctx: dict[str, Any]) -> None:
     settings = get_settings()
     configure_logging(settings)
@@ -188,7 +200,11 @@ class WorkerSettings:
         arq app.workers.outbox_consumer.WorkerSettings
     """
 
-    functions: ClassVar[list[Any]] = [tick, reservation_expiry_tick]
+    functions: ClassVar[list[Any]] = [
+        tick,
+        reservation_expiry_tick,
+        valuation_retrain_tick,
+    ]
     on_startup = staticmethod(startup)
     on_shutdown = staticmethod(shutdown)
     cron_jobs: ClassVar[list[CronJob]] = [
@@ -213,6 +229,20 @@ class WorkerSettings:
             second={0},
             run_at_startup=True,
             timeout=30,
+            keep_result=0,
+        ),
+        cron(
+            valuation_retrain_tick,
+            name="valuation_retrain_tick",
+            # 02:00 UTC daily — far from human-traffic windows and after
+            # outbox-driven sale events have settled.
+            hour={2},
+            minute={0},
+            second={0},
+            run_at_startup=False,
+            # Training is CPU-bound; give it a generous timeout but not
+            # unbounded so a wedged run doesn't hold the worker forever.
+            timeout=900,
             keep_result=0,
         ),
     ]
