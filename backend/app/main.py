@@ -28,6 +28,7 @@ from app.platform.observability import (
     init_tracing,
     metrics_endpoint,
 )
+from app.platform.rate_limit import AuthRateLimitMiddleware
 
 
 @asynccontextmanager
@@ -76,7 +77,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         redoc_url="/redoc",
     )
 
+    # Auth rate-limit runs BEFORE metrics so blocked requests don't
+    # poison the latency histogram. Request-id is innermost so the
+    # 429 body still carries a correlation id.
     app.add_middleware(MetricsMiddleware)
+    app.add_middleware(AuthRateLimitMiddleware)
     app.add_middleware(RequestIdMiddleware)
 
     if s.http_cors_origins:
