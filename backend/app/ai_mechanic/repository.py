@@ -284,6 +284,12 @@ class AiSpendRepository:
         )
         self.session.add(event)
         await self.session.flush()
+        # Mirror to Prometheus so /metrics reflects the running total
+        # without a separate cron-driven gauge update. Imported here to
+        # keep the platform → context dependency direction straight.
+        from app.platform.observability import record_ai_spend
+
+        record_ai_spend(model, est_cost_micro_mnt)
         return event
 
 

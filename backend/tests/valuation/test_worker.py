@@ -56,13 +56,13 @@ async def test_retrain_skips_when_no_sales(monkeypatch: pytest.MonkeyPatch) -> N
     monkeypatch.setattr(valuation_worker, "_gather_training_rows", _fake_gather)
 
     class _FakeAsyncCM:
-        async def __aenter__(self) -> "object":
+        async def __aenter__(self) -> object:
             return self
 
         async def __aexit__(self, *_a: Any) -> None:
             return None
 
-        def begin(self) -> "_FakeAsyncCM":
+        def begin(self) -> _FakeAsyncCM:
             return self
 
     def _factory() -> _FakeAsyncCM:

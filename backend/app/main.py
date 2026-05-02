@@ -22,6 +22,12 @@ from app.platform.errors import (
 )
 from app.platform.logging import configure_logging, get_logger
 from app.platform.middleware import RequestIdMiddleware
+from app.platform.observability import (
+    MetricsMiddleware,
+    init_sentry,
+    init_tracing,
+    metrics_endpoint,
+)
 
 
 @asynccontextmanager
@@ -30,6 +36,10 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     configure_logging(settings)
     logger = get_logger("app.lifespan")
     logger.info("startup_begin", env=settings.app_env.value, name=settings.app_name)
+
+    # Sentry + OTel before DB so any boot failure gets reported.
+    init_sentry(settings)
+    init_tracing(settings)
 
     await init_db(settings)
     await init_redis(settings)
@@ -66,6 +76,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         redoc_url="/redoc",
     )
 
+    app.add_middleware(MetricsMiddleware)
     app.add_middleware(RequestIdMiddleware)
 
     if s.http_cors_origins:
@@ -82,6 +93,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_exception_handler(Exception, unhandled_error_handler)
 
     app.include_router(v1_router)
+    # Prometheus scrape endpoint mounted at root so default scraper
+    # configs don't need a path override. Excluded from OpenAPI to keep
+    # the published schema focused on /v1/.
+    app.add_api_route(
+        "/metrics",
+        metrics_endpoint,
+        methods=["GET"],
+        include_in_schema=False,
+    )
 
     return app
 

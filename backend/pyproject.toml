@@ -35,6 +35,10 @@ dependencies = [
   "openai-agents[litellm]>=0.7",  # AI Mechanic — Agents SDK + LiteLLM for Gemini routing
   "catboost>=1.2",          # Phase 4 — car-valuation gradient boosting
 
+  # Observability — Phase 5
+  "sentry-sdk[fastapi]>=2.18",
+  "prometheus-client>=0.21",
+
   # Logging
   "structlog>=24.4",
 ]
@@ -149,6 +153,7 @@ module = [
   "agents.*",
   "litellm.*",
   "catboost.*",
+  "opentelemetry.*",
 ]
 ignore_missing_imports = true
 
