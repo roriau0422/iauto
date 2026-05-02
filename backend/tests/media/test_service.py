@@ -65,6 +65,15 @@ class FakeMediaClient(MediaClient):
         self.head_calls.append(object_key)
         return self._objects.get(object_key)
 
+    async def download_bytes(self, *, object_key: str) -> bytes:
+        # Tests that need a real payload pre-load it via `_objects[key]["Body"]`;
+        # the default returns an empty buffer so the call still resolves.
+        meta = self._objects.get(object_key) or {}
+        body = meta.get("Body")
+        if isinstance(body, bytes):
+            return body
+        return b""
+
     async def delete_object(self, *, object_key: str) -> None:
         self.delete_calls.append(object_key)
         self._objects.pop(object_key, None)

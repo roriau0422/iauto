@@ -1329,7 +1329,8 @@
           "quote",
           "review",
           "story",
-          "ad"
+          "ad",
+          "voice"
         ],
         "title": "MediaAssetPurpose",
         "type": "string"
@@ -1356,7 +1357,13 @@
             "enum": [
               "image/jpeg",
               "image/png",
-              "image/webp"
+              "image/webp",
+              "audio/mpeg",
+              "audio/mp4",
+              "audio/wav",
+              "audio/x-wav",
+              "audio/webm",
+              "audio/ogg"
             ],
             "title": "Content Type",
             "type": "string"
@@ -4487,6 +4494,133 @@
         "title": "VerificationSource",
         "type": "string"
       },
+      "VoiceMessageCreateIn": {
+        "properties": {
+          "language": {
+            "anyOf": [
+              {
+                "maxLength": 8,
+                "minLength": 2,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "media_asset_id": {
+            "format": "uuid",
+            "title": "Media Asset Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "media_asset_id"
+        ],
+        "title": "VoiceMessageCreateIn",
+        "type": "object"
+      },
+      "VoiceReplyOut": {
+        "description": "Voice → text → agent run. The transcript becomes a user message.",
+        "properties": {
+          "agent_micro_mnt": {
+            "title": "Agent Micro Mnt",
+            "type": "integer"
+          },
+          "assistant_message": {
+            "$ref": "#/components/schemas/MessageOut"
+          },
+          "completion_tokens": {
+            "title": "Completion Tokens",
+            "type": "integer"
+          },
+          "prompt_tokens": {
+            "title": "Prompt Tokens",
+            "type": "integer"
+          },
+          "transcript": {
+            "$ref": "#/components/schemas/VoiceTranscriptOut"
+          },
+          "transcription_micro_mnt": {
+            "title": "Transcription Micro Mnt",
+            "type": "integer"
+          },
+          "user_message": {
+            "$ref": "#/components/schemas/MessageOut"
+          }
+        },
+        "required": [
+          "transcript",
+          "user_message",
+          "assistant_message",
+          "prompt_tokens",
+          "completion_tokens",
+          "transcription_micro_mnt",
+          "agent_micro_mnt"
+        ],
+        "title": "VoiceReplyOut",
+        "type": "object"
+      },
+      "VoiceTranscriptOut": {
+        "properties": {
+          "audio_seconds": {
+            "title": "Audio Seconds",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "media_asset_id": {
+            "format": "uuid",
+            "title": "Media Asset Id",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "session_id": {
+            "format": "uuid",
+            "title": "Session Id",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "session_id",
+          "media_asset_id",
+          "language",
+          "model",
+          "text",
+          "audio_seconds",
+          "created_at"
+        ],
+        "title": "VoiceTranscriptOut",
+        "type": "object"
+      },
       "WarehouseMovementKind": {
         "description": "Why a stock movement was recorded.\n\n- `receive` — new inventory arrived. Always positive in `signed_quantity`.\n- `issue`   — inventory left (sale, internal use). Always negative.\n- `adjust`  — physical recount. Either sign; stocktake uses this.",
         "enum": [
@@ -5549,6 +5683,75 @@
           }
         },
         "summary": "Send a user message; persist + run agent + return assistant reply",
+        "tags": [
+          "ai_mechanic"
+        ]
+      }
+    },
+    "/v1/ai-mechanic/sessions/{session_id}/voice": {
+      "post": {
+        "operationId": "post_voice_message_v1_ai_mechanic_sessions__session_id__voice_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceMessageCreateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceReplyOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Voice → Whisper transcription → agent reply",
         "tags": [
           "ai_mechanic"
         ]

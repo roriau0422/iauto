@@ -19,6 +19,9 @@ from app.ai_mechanic.schemas import (
     SessionCreateIn,
     SessionListOut,
     SessionOut,
+    VoiceMessageCreateIn,
+    VoiceReplyOut,
+    VoiceTranscriptOut,
 )
 from app.ai_mechanic.service import AiMechanicService
 from app.identity.dependencies import get_current_user
@@ -109,6 +112,30 @@ async def post_message(
         prompt_tokens=reply.prompt_tokens,
         completion_tokens=reply.completion_tokens,
         est_cost_micro_mnt=reply.est_cost_micro_mnt,
+    )
+
+
+@router.post(
+    "/ai-mechanic/sessions/{session_id}/voice",
+    response_model=VoiceReplyOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Voice → Whisper transcription → agent reply",
+)
+async def post_voice_message(
+    session_id: uuid.UUID,
+    body: VoiceMessageCreateIn,
+    service: Annotated[AiMechanicService, Depends(get_ai_mechanic_service)],
+    user: Annotated[User, Depends(get_current_user)],
+) -> VoiceReplyOut:
+    reply = await service.post_voice_message(session_id=session_id, user_id=user.id, payload=body)
+    return VoiceReplyOut(
+        transcript=VoiceTranscriptOut.model_validate(reply.transcript),
+        user_message=MessageOut.model_validate(reply.user_message),
+        assistant_message=MessageOut.model_validate(reply.assistant_message),
+        prompt_tokens=reply.prompt_tokens,
+        completion_tokens=reply.completion_tokens,
+        transcription_micro_mnt=reply.transcription_micro_mnt,
+        agent_micro_mnt=reply.agent_micro_mnt,
     )
 
 

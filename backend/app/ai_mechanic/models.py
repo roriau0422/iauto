@@ -149,7 +149,12 @@ class AiMessage(UuidPrimaryKey, Base):
 
 
 class AiSpendEvent(UuidPrimaryKey, Base):
-    """One row per LLM call. `est_cost_micro_mnt` keeps sub-MNT fidelity."""
+    """One row per AI call.
+
+    `audio_seconds` is populated for Whisper transcription rows so the
+    daily-spend cron sums minute-billing alongside token billing
+    without joining a second table.
+    """
 
     __tablename__ = "ai_spend_events"
 
@@ -166,7 +171,44 @@ class AiSpendEvent(UuidPrimaryKey, Base):
     model: Mapped[str] = mapped_column(Text, nullable=False)
     prompt_tokens: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     completion_tokens: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    audio_seconds: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     est_cost_micro_mnt: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default="0")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class AiVoiceTranscript(UuidPrimaryKey, Base):
+    """Append-only audit row per Whisper transcription.
+
+    The transcribed text is also posted into the conversation as a
+    `user` message (so the agent loop sees it); this table preserves
+    the source-asset linkage for forensics + retraining datasets.
+    """
+
+    __tablename__ = "ai_voice_transcripts"
+
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("ai_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    media_asset_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("media_assets.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    language: Mapped[str | None] = mapped_column(Text, nullable=True)
+    model: Mapped[str] = mapped_column(Text, nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    audio_seconds: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

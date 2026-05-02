@@ -1,13 +1,14 @@
-"""Token cost estimation + spend logging.
+"""Token + audio-second cost estimation.
 
 The cost table is rough and hand-curated for Phase 3 dogfooding —
-prices below are placeholders denominated in micro-MNT per 1000 tokens.
-Phase 5 swaps to a config-driven table fed from the provider's billing
-API once we have multi-vendor routing.
+prices below are placeholders denominated in micro-MNT. Phase 5 swaps
+to a config-driven table fed from the provider's billing API once we
+have multi-vendor routing.
 
 Source-of-truth pricing (May 2026, MNT-pegged):
   - gemini-3-flash-preview: ~50 micro-MNT / 1000 prompt tokens, ~150 / 1000 completion
   - text-embedding-3-small: ~1 micro-MNT / 1000 tokens
+  - whisper-1: ~333 micro-MNT / audio second (i.e. ~20 MNT / minute)
 """
 
 from __future__ import annotations
@@ -23,18 +24,31 @@ _PRICE_MICRO_MNT_PER_1K_TOKENS: dict[str, tuple[int, int]] = {
     "text-embedding-3-small": (1, 0),
 }
 
+# Audio-second pricing for transcription / multimodal-audio models.
+# Whisper bills per minute; we record per-second to keep the granular
+# spend log honest.
+_PRICE_MICRO_MNT_PER_AUDIO_SECOND: dict[str, int] = {
+    "whisper-1": 333,
+}
+
 
 def estimate_cost_micro_mnt(
     *,
     model: str,
     prompt_tokens: int,
     completion_tokens: int,
+    audio_seconds: int = 0,
 ) -> int:
     """Best-effort cost estimate in micro-MNT.
 
-    Unknown models default to 0; the spend log still records the token
-    counts so the cost-alert cron can flag surprises.
+    Audio-priced models bill on `audio_seconds`; everything else falls
+    through to the per-1K-token rate. Unknown models return 0 — the
+    spend log still records the raw counts so the cost-alert cron can
+    flag surprises.
     """
+    audio_rate = _PRICE_MICRO_MNT_PER_AUDIO_SECOND.get(model)
+    if audio_rate is not None:
+        return audio_seconds * audio_rate
     rates = _PRICE_MICRO_MNT_PER_1K_TOKENS.get(model)
     if rates is None:
         return 0

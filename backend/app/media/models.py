@@ -38,6 +38,7 @@ class MediaAssetPurpose(StrEnum):
     review = "review"
     story = "story"
     ad = "ad"
+    voice = "voice"
 
 
 class MediaAsset(UuidPrimaryKey, Timestamped, Base):

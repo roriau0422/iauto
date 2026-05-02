@@ -14,7 +14,12 @@ from app.ai_mechanic.agent import (
     AgentRunResult,
 )
 from app.ai_mechanic.embeddings import EmbeddingClient, content_hash
-from app.ai_mechanic.models import AiMessage, AiMessageRole, AiSession
+from app.ai_mechanic.models import (
+    AiMessage,
+    AiMessageRole,
+    AiSession,
+    AiVoiceTranscript,
+)
 from app.ai_mechanic.rate_limit import AiRateLimiter
 from app.ai_mechanic.repository import (
     AiEmbeddingCacheRepository,
@@ -22,15 +27,19 @@ from app.ai_mechanic.repository import (
     AiMessageRepository,
     AiSessionRepository,
     AiSpendRepository,
+    AiVoiceTranscriptRepository,
 )
 from app.ai_mechanic.schemas import (
     KbDocumentCreateIn,
     MessageCreateIn,
     SessionCreateIn,
+    VoiceMessageCreateIn,
 )
 from app.ai_mechanic.spend import estimate_cost_micro_mnt
+from app.ai_mechanic.whisper import WhisperClient
+from app.media.models import MediaAsset, MediaAssetPurpose, MediaAssetStatus
 from app.platform.config import Settings
-from app.platform.errors import NotFoundError
+from app.platform.errors import ConflictError, NotFoundError
 from app.platform.logging import get_logger
 
 logger = get_logger("app.ai_mechanic.service")
@@ -78,6 +87,20 @@ class AssistantReply:
     est_cost_micro_mnt: int
 
 
+@dataclass(slots=True)
+class VoiceReply:
+    transcript: AiVoiceTranscript
+    user_message: AiMessage
+    assistant_message: AiMessage
+    prompt_tokens: int
+    completion_tokens: int
+    transcription_micro_mnt: int
+    agent_micro_mnt: int
+
+
+WHISPER_MODEL_NAME = "whisper-1"
+
+
 class AiMechanicService:
     def __init__(
         self,
@@ -87,16 +110,24 @@ class AiMechanicService:
         runner: AgentRunner,
         embeddings: EmbeddingClient,
         settings: Settings,
+        whisper: WhisperClient | None = None,
+        media_download: object | None = None,
     ) -> None:
         self.session = session
         self.runner = runner
         self.embeddings = embeddings
         self.settings = settings
+        self.whisper = whisper
+        # `media_download` is the optional `MediaClient`-shaped fetcher
+        # used to pull audio bytes for transcription. Passed in so the
+        # voice path doesn't have to import a fresh S3 client per request.
+        self.media_download = media_download
         self.kb = AiKbRepository(session)
         self.cache = AiEmbeddingCacheRepository(session)
         self.sessions = AiSessionRepository(session)
         self.messages = AiMessageRepository(session)
         self.spend = AiSpendRepository(session)
+        self.transcripts = AiVoiceTranscriptRepository(session)
         self.rate_limiter = AiRateLimiter(
             redis=redis, daily_limit=settings.ai_daily_request_limit_per_user
         )
@@ -208,15 +239,28 @@ class AiMechanicService:
     ) -> AssistantReply:
         """Persist the user's message, run the agent, persist the reply."""
         sess = await self.get_session_for_user(session_id=session_id, user_id=user_id)
-
-        # Rate-limit before persisting anything — protects from a buggy
-        # client looping on the endpoint.
         await self.rate_limiter.check_and_consume(user_id=user_id)
+        return await self._dispatch_agent(session=sess, user_id=user_id, content=payload.content)
+
+    async def _dispatch_agent(
+        self,
+        *,
+        session: AiSession,
+        user_id: uuid.UUID,
+        content: str,
+    ) -> AssistantReply:
+        """Common agent-dispatch path used by text and voice entry points.
+
+        Persists the user message, runs the agent against the prior
+        history, persists the assistant reply + any tool rows, records
+        the spend event, and returns an `AssistantReply`.
+        """
+        session_id = session.id
 
         user_msg = await self.messages.append(
             session_id=session_id,
             role=AiMessageRole.user,
-            content=payload.content,
+            content=content,
         )
 
         # Build agent history from prior messages. Only roles the LLM
@@ -231,12 +275,10 @@ class AiMechanicService:
         ctx = AgentContext(
             session=self.session,
             user_id=user_id,
-            vehicle_id=sess.vehicle_id,
+            vehicle_id=session.vehicle_id,
             embedding_client=self.embeddings,
         )
-        run: AgentRunResult = await self.runner.run(
-            ctx=ctx, history=history, user_input=payload.content
-        )
+        run: AgentRunResult = await self.runner.run(ctx=ctx, history=history, user_input=content)
 
         assistant_msg = await self.messages.append(
             session_id=session_id,
@@ -244,7 +286,6 @@ class AiMechanicService:
             content=run.final_output,
         )
 
-        # Persist tool calls as separate `tool` rows for the audit log.
         for call in run.tool_calls:
             await self.messages.append(
                 session_id=session_id,
@@ -283,4 +324,95 @@ class AiMechanicService:
             prompt_tokens=run.prompt_tokens,
             completion_tokens=run.completion_tokens,
             est_cost_micro_mnt=cost,
+        )
+
+    async def post_voice_message(
+        self,
+        *,
+        session_id: uuid.UUID,
+        user_id: uuid.UUID,
+        payload: VoiceMessageCreateIn,
+    ) -> VoiceReply:
+        """Voice → text via Whisper, then thread through the agent.
+
+        The voice flow consumes the same daily request budget as a text
+        message — a tap of the mic shouldn't cost more quota than a
+        typed turn. Whisper spend rolls into `ai_spend_events` with
+        `audio_seconds` populated; the agent run logs its own row as
+        usual.
+        """
+        if self.whisper is None or self.media_download is None:
+            raise ConflictError("Voice transcription is not configured")
+
+        sess = await self.get_session_for_user(session_id=session_id, user_id=user_id)
+        await self.rate_limiter.check_and_consume(user_id=user_id)
+
+        asset = await self.session.get(MediaAsset, payload.media_asset_id)
+        if asset is None or asset.owner_id != user_id:
+            raise NotFoundError("Asset not found")
+        if asset.purpose != MediaAssetPurpose.voice:
+            raise ConflictError("Asset purpose is not voice")
+        if asset.status != MediaAssetStatus.active:
+            raise ConflictError("Asset is not active; confirm the upload first")
+
+        # Pull bytes from MinIO. The boto3 GET is sync so the client
+        # implementation wraps it in `asyncio.to_thread`.
+        download = self.media_download.download_bytes  # type: ignore[attr-defined]
+        audio_bytes = await download(object_key=asset.object_key)
+
+        # Use the asset's basename as the filename so OpenAI infers the
+        # codec from the extension.
+        filename = asset.object_key.rsplit("/", 1)[-1]
+        whisper_result = await self.whisper.transcribe(
+            audio_bytes=audio_bytes,
+            filename=filename,
+            language=payload.language,
+        )
+        if not whisper_result.text.strip():
+            raise ConflictError("Whisper returned an empty transcript")
+
+        transcript_row = await self.transcripts.create(
+            session_id=sess.id,
+            user_id=user_id,
+            media_asset_id=asset.id,
+            model=WHISPER_MODEL_NAME,
+            text=whisper_result.text,
+            language=whisper_result.language,
+            audio_seconds=whisper_result.audio_seconds,
+        )
+
+        transcription_cost = estimate_cost_micro_mnt(
+            model=WHISPER_MODEL_NAME,
+            prompt_tokens=0,
+            completion_tokens=0,
+            audio_seconds=whisper_result.audio_seconds,
+        )
+        await self.spend.record(
+            user_id=user_id,
+            session_id=sess.id,
+            model=WHISPER_MODEL_NAME,
+            prompt_tokens=0,
+            completion_tokens=0,
+            audio_seconds=whisper_result.audio_seconds,
+            est_cost_micro_mnt=transcription_cost,
+        )
+
+        agent_reply = await self._dispatch_agent(
+            session=sess, user_id=user_id, content=whisper_result.text
+        )
+        logger.info(
+            "ai_voice_transcribed",
+            session_id=str(sess.id),
+            transcript_id=str(transcript_row.id),
+            audio_seconds=whisper_result.audio_seconds,
+            transcription_micro_mnt=transcription_cost,
+        )
+        return VoiceReply(
+            transcript=transcript_row,
+            user_message=agent_reply.user_message,
+            assistant_message=agent_reply.assistant_message,
+            prompt_tokens=agent_reply.prompt_tokens,
+            completion_tokens=agent_reply.completion_tokens,
+            transcription_micro_mnt=transcription_cost,
+            agent_micro_mnt=agent_reply.est_cost_micro_mnt,
         )

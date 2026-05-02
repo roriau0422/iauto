@@ -21,6 +21,7 @@ from app.ai_mechanic.models import (
     AiSession,
     AiSessionStatus,
     AiSpendEvent,
+    AiVoiceTranscript,
 )
 
 
@@ -266,6 +267,7 @@ class AiSpendRepository:
         prompt_tokens: int,
         completion_tokens: int,
         est_cost_micro_mnt: int,
+        audio_seconds: int = 0,
     ) -> AiSpendEvent:
         event = AiSpendEvent(
             user_id=user_id,
@@ -273,8 +275,38 @@ class AiSpendRepository:
             model=model,
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
+            audio_seconds=audio_seconds,
             est_cost_micro_mnt=est_cost_micro_mnt,
         )
         self.session.add(event)
         await self.session.flush()
         return event
+
+
+class AiVoiceTranscriptRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    async def create(
+        self,
+        *,
+        session_id: uuid.UUID,
+        user_id: uuid.UUID,
+        media_asset_id: uuid.UUID,
+        model: str,
+        text: str,
+        language: str | None,
+        audio_seconds: int,
+    ) -> AiVoiceTranscript:
+        row = AiVoiceTranscript(
+            session_id=session_id,
+            user_id=user_id,
+            media_asset_id=media_asset_id,
+            model=model,
+            text=text,
+            language=language,
+            audio_seconds=audio_seconds,
+        )
+        self.session.add(row)
+        await self.session.flush()
+        return row

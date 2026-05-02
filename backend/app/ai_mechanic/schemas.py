@@ -75,6 +75,36 @@ class AssistantReplyOut(BaseModel):
     est_cost_micro_mnt: int
 
 
+class VoiceMessageCreateIn(BaseModel):
+    media_asset_id: uuid.UUID
+    language: str | None = Field(default=None, min_length=2, max_length=8)
+
+
+class VoiceTranscriptOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    session_id: uuid.UUID
+    media_asset_id: uuid.UUID
+    language: str | None
+    model: str
+    text: str
+    audio_seconds: int
+    created_at: datetime
+
+
+class VoiceReplyOut(BaseModel):
+    """Voice → text → agent run. The transcript becomes a user message."""
+
+    transcript: VoiceTranscriptOut
+    user_message: MessageOut
+    assistant_message: MessageOut
+    prompt_tokens: int
+    completion_tokens: int
+    transcription_micro_mnt: int
+    agent_micro_mnt: int
+
+
 # ---------------------------------------------------------------------------
 # Knowledge base ingestion (admin / phase-3 dev surface)
 # ---------------------------------------------------------------------------

@@ -56,6 +56,8 @@ class MediaClient(Protocol):
 
     async def head_object(self, *, object_key: str) -> dict[str, Any] | None: ...
 
+    async def download_bytes(self, *, object_key: str) -> bytes: ...
+
     async def delete_object(self, *, object_key: str) -> None: ...
 
 
@@ -144,6 +146,27 @@ class S3MediaClient:
             if err_code in ("404", "NoSuchKey", "NotFound"):
                 return None
             raise
+
+    async def download_bytes(self, *, object_key: str) -> bytes:
+        """Pull the full object body. Used server-side for AI ingestion.
+
+        Whisper transcription needs the audio bytes inline — presigned
+        GET URLs aren't useful when the consumer is the same backend.
+        boto3's `get_object` returns a streaming body; we read it all
+        because Whisper accepts a single payload, not a stream.
+        """
+
+        def _get() -> bytes:
+            response = self._client.get_object(Bucket=self._bucket, Key=object_key)
+            body = response["Body"]
+            try:
+                return bytes(body.read())
+            finally:
+                close = getattr(body, "close", None)
+                if callable(close):
+                    close()
+
+        return await asyncio.to_thread(_get)
 
     async def delete_object(self, *, object_key: str) -> None:
         await asyncio.to_thread(

@@ -16,6 +16,7 @@ from app.ai_mechanic.models import (
     AiMessage,
     AiSession,
     AiSpendEvent,
+    AiVoiceTranscript,
 )
 
 # -- businesses --------------------------------------------------------------
@@ -75,6 +76,7 @@ __all__: list[str] = [
     "AiMessage",
     "AiSession",
     "AiSpendEvent",
+    "AiVoiceTranscript",
     "Business",
     "BusinessMember",
     "BusinessVehicleBrand",
