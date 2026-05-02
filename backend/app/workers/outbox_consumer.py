@@ -174,11 +174,13 @@ async def startup(ctx: dict[str, Any]) -> None:
     from app.chat.handlers import register as register_chat_handlers
     from app.notifications.handlers import register as register_notification_handlers
     from app.platform.cache import init_redis
+    from app.vehicles.handlers import register as register_vehicles_handlers
 
     await init_redis(settings)
     register_chat_handlers()
     register_ads_handlers()
     register_notification_handlers()
+    register_vehicles_handlers()
     logger.info("outbox_worker_started")
 
 

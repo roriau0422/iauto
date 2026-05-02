@@ -13,6 +13,7 @@ from app.platform.crypto import get_search_index
 from app.vehicles.models import (
     SteeringSide,
     Vehicle,
+    VehicleDue,
     VehicleLookupPlan,
     VehicleLookupReport,
     VehicleOwnership,
@@ -192,3 +193,24 @@ class LookupReportRepository:
         self.session.add(row)
         await self.session.flush()
         return row
+
+
+class VehicleDueRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    async def get_by_id(self, due_id: uuid.UUID) -> VehicleDue | None:
+        return await self.session.get(VehicleDue, due_id)
+
+    async def list_for_vehicle(self, *, vehicle_id: uuid.UUID) -> list[VehicleDue]:
+        """All dues attached to a vehicle, newest first by due_date.
+
+        NULL due_dates sort last so the soonest payable bubbles to the top
+        without surprising "unknown date" rows.
+        """
+        stmt = (
+            select(VehicleDue)
+            .where(VehicleDue.vehicle_id == vehicle_id)
+            .order_by(VehicleDue.due_date.is_(None), VehicleDue.due_date)
+        )
+        return list((await self.session.execute(stmt)).scalars())

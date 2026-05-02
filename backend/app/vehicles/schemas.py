@@ -12,6 +12,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.vehicles.models import (
     SteeringSide,
+    VehicleDueKind,
+    VehicleDueStatus,
     VehicleServiceLogKind,
     VerificationSource,
 )
@@ -247,3 +249,43 @@ class MyCarItemOut(BaseModel):
 class MyCarListOut(BaseModel):
     vehicle_id: uuid.UUID
     items: list[MyCarItemOut]
+
+
+# ---------------------------------------------------------------------------
+# Vehicle dues — tax / insurance / fines (session 24)
+# ---------------------------------------------------------------------------
+
+
+class VehicleDueOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    vehicle_id: uuid.UUID
+    kind: VehicleDueKind
+    amount_mnt: int
+    due_date: date | None
+    status: VehicleDueStatus
+    paid_at: datetime | None
+    payment_intent_id: uuid.UUID | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class VehicleDueListOut(BaseModel):
+    vehicle_id: uuid.UUID
+    items: list[VehicleDueOut]
+
+
+class VehicleDuePayOut(BaseModel):
+    """Response from `POST /vehicles/{vehicle_id}/dues/{due_id}/pay`.
+
+    Mirrors `PaymentIntentCreatedOut` shape (the existing sale-payment
+    response) so the mobile screens can share invoice rendering code.
+    """
+
+    due: VehicleDueOut
+    payment_intent_id: uuid.UUID
+    qr_text: str | None
+    qr_image_base64: str | None
+    deeplink: str | None
+    urls: list[dict[str, Any]] | None

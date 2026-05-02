@@ -64,6 +64,7 @@ from app.valuation.models import ValuationEstimate, ValuationModel
 # -- vehicles ----------------------------------------------------------------
 from app.vehicles.models import (
     Vehicle,
+    VehicleDue,
     VehicleLookupPlan,
     VehicleLookupReport,
     VehicleOwnership,
@@ -113,6 +114,7 @@ __all__: list[str] = [
     "Vehicle",
     "VehicleBrand",
     "VehicleCountry",
+    "VehicleDue",
     "VehicleLookupPlan",
     "VehicleLookupReport",
     "VehicleModel",

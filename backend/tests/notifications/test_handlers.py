@@ -127,6 +127,7 @@ async def test_payment_settled_no_sale_no_dispatch(db_session: AsyncSession) -> 
     event = PaymentSettled(
         aggregate_id=uuid.uuid4(),
         tenant_id=uuid.uuid4(),
+        kind="sale_payment",
         sale_id=uuid.uuid4(),
         amount_mnt=50_000,
         settled_at=datetime.now(UTC),

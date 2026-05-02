@@ -20,6 +20,7 @@ from app.payments.models import (
     LedgerAccount,
     PaymentEventKind,
     PaymentIntent,
+    PaymentIntentKind,
     PaymentIntentStatus,
 )
 from app.payments.providers.qpay import QpayClient
@@ -139,6 +140,7 @@ class PaymentsService:
                 PaymentFailed(
                     aggregate_id=intent.id,
                     tenant_id=intent.tenant_id,
+                    kind=intent.kind.value,
                     sale_id=sale.id,
                     reason=f"create_invoice status={result.status}",
                 ),
@@ -165,6 +167,7 @@ class PaymentsService:
             PaymentIntentCreated(
                 aggregate_id=intent.id,
                 tenant_id=intent.tenant_id,
+                kind=intent.kind.value,
                 sale_id=sale.id,
                 amount_mnt=sale.price_mnt,
             ),
@@ -173,6 +176,112 @@ class PaymentsService:
             "qpay_invoice_created",
             intent_id=str(intent.id),
             sale_id=str(sale.id),
+            qpay_invoice_id=intent.qpay_invoice_id,
+        )
+
+        return InvoiceCreated(
+            intent=intent,
+            qr_text=_optional_str(body.get("qr_text")),
+            qr_image_base64=_optional_str(body.get("qr_image")),
+            deeplink=_optional_str(body.get("qPay_shortUrl")),
+            urls=body.get("urls") if isinstance(body.get("urls"), list) else None,
+        )
+
+    # ---- vehicle due intents ------------------------------------------
+
+    async def create_intent_for_vehicle_due(
+        self,
+        *,
+        driver_id: uuid.UUID,
+        vehicle_due: Any,
+    ) -> InvoiceCreated:
+        """Create a QPay invoice for a vehicle tax / insurance / fines due.
+
+        Caller must already have asserted the driver owns the vehicle.
+        Idempotent per `vehicle_due_id`: a second call returns the existing
+        intent without re-calling QPay.
+        """
+        existing = await self.intents.get_by_vehicle_due_id(vehicle_due.id)
+        if existing is not None:
+            return InvoiceCreated(
+                intent=existing,
+                qr_text=None,
+                qr_image_base64=None,
+                deeplink=None,
+                urls=None,
+            )
+
+        invoice_code = self.settings.qpay_invoice_code
+        if not invoice_code:
+            raise DomainError("QPAY_INVOICE_CODE not configured")
+
+        intent = await self.intents.create_for_vehicle_due(
+            vehicle_due_id=vehicle_due.id,
+            amount_mnt=vehicle_due.amount_mnt,
+            invoice_code=invoice_code,
+        )
+
+        callback_url = self.settings.qpay_callback_url or ""
+        payload = {
+            "invoice_code": invoice_code,
+            "sender_invoice_no": intent.sender_invoice_no,
+            "invoice_receiver_code": str(driver_id),
+            "invoice_description": f"iAuto vehicle due {vehicle_due.id}",
+            "amount": vehicle_due.amount_mnt,
+            "callback_url": callback_url,
+        }
+        result = await self.qpay.create_invoice(payload=payload)
+        await self.events.append(
+            payment_intent_id=intent.id,
+            kind=PaymentEventKind.invoice_created,
+            qpay_payload=result.body,
+        )
+
+        if not result.ok:
+            intent.status = PaymentIntentStatus.failed
+            intent.last_qpay_status = "create_invoice_failed"
+            await self.session.flush()
+            write_outbox_event(
+                self.session,
+                PaymentFailed(
+                    aggregate_id=intent.id,
+                    tenant_id=None,
+                    kind=intent.kind.value,
+                    vehicle_due_id=vehicle_due.id,
+                    reason=f"create_invoice status={result.status}",
+                ),
+            )
+            logger.warning(
+                "qpay_invoice_create_failed",
+                intent_id=str(intent.id),
+                status=result.status,
+            )
+            return InvoiceCreated(
+                intent=intent,
+                qr_text=None,
+                qr_image_base64=None,
+                deeplink=None,
+                urls=None,
+            )
+
+        body = result.body
+        intent.qpay_invoice_id = str(body.get("invoice_id")) if body.get("invoice_id") else None
+        await self.session.flush()
+
+        write_outbox_event(
+            self.session,
+            PaymentIntentCreated(
+                aggregate_id=intent.id,
+                tenant_id=None,
+                kind=intent.kind.value,
+                vehicle_due_id=vehicle_due.id,
+                amount_mnt=vehicle_due.amount_mnt,
+            ),
+        )
+        logger.info(
+            "qpay_invoice_created",
+            intent_id=str(intent.id),
+            vehicle_due_id=str(vehicle_due.id),
             qpay_invoice_id=intent.qpay_invoice_id,
         )
 
@@ -196,15 +305,33 @@ class PaymentsService:
         intent = await self.intents.get_by_id(intent_id)
         if intent is None:
             raise NotFoundError("Payment intent not found")
-        sale = await self.sales.get_by_id(intent.sale_id)
-        if sale is None:
+        if intent.kind == PaymentIntentKind.sale_payment:
+            assert intent.sale_id is not None
+            sale = await self.sales.get_by_id(intent.sale_id)
+            if sale is None:
+                raise NotFoundError("Payment intent not found")
+            # Either the buying driver or the selling business may read.
+            if user_id is not None and sale.driver_id == user_id:
+                return intent
+            if business_id is not None and intent.tenant_id == business_id:
+                return intent
             raise NotFoundError("Payment intent not found")
-        # Either the buying driver or the selling business may read.
-        if user_id is not None and sale.driver_id == user_id:
-            return intent
-        if business_id is not None and intent.tenant_id == business_id:
-            return intent
-        raise NotFoundError("Payment intent not found")
+
+        # vehicle_due_payment — readable only by the driver who owns the
+        # vehicle whose due this is. Resolve via vehicle_dues → vehicles
+        # → ownership pivot.
+        if user_id is None:
+            raise NotFoundError("Payment intent not found")
+        assert intent.vehicle_due_id is not None
+        from app.vehicles.models import VehicleDue
+        from app.vehicles.repository import OwnershipRepository
+
+        due = await self.session.get(VehicleDue, intent.vehicle_due_id)
+        if due is None:
+            raise NotFoundError("Payment intent not found")
+        if not await OwnershipRepository(self.session).exists(user_id, due.vehicle_id):
+            raise NotFoundError("Payment intent not found")
+        return intent
 
     # ---- settlement -----------------------------------------------------
 
@@ -290,20 +417,31 @@ class PaymentsService:
         return None
 
     async def _mark_settled(self, *, intent: PaymentIntent, source: PaymentEventKind) -> None:
-        """Atomically flip status, post the ledger pair, emit the event."""
+        """Atomically flip status, post the ledger pair (sale only), emit the event.
+
+        Vehicle-due intents skip the ledger entirely — there's no business
+        revenue accruing. The vehicles outbox subscriber picks up the
+        emitted `PaymentSettled` and flips the due to `paid`.
+        """
         intent.status = PaymentIntentStatus.settled
         intent.settled_at = datetime.now(UTC)
         await self.session.flush()
 
-        await self.ledger.post_pair(
-            tenant_id=intent.tenant_id,
-            amount_mnt=intent.amount_mnt,
-            debit_account=LedgerAccount.cash,
-            credit_account=LedgerAccount.business_revenue,
-            payment_intent_id=intent.id,
-            sale_id=intent.sale_id,
-            description=f"Sale {intent.sale_id} via QPay",
-        )
+        if intent.kind == PaymentIntentKind.sale_payment:
+            # Tenant-id is guaranteed non-null here by the DB CHECK on
+            # ck_payment_intents_tenant_per_kind. Assert for the type
+            # checker.
+            assert intent.tenant_id is not None
+            assert intent.sale_id is not None
+            await self.ledger.post_pair(
+                tenant_id=intent.tenant_id,
+                amount_mnt=intent.amount_mnt,
+                debit_account=LedgerAccount.cash,
+                credit_account=LedgerAccount.business_revenue,
+                payment_intent_id=intent.id,
+                sale_id=intent.sale_id,
+                description=f"Sale {intent.sale_id} via QPay",
+            )
 
         await self.events.append(
             payment_intent_id=intent.id,
@@ -316,7 +454,9 @@ class PaymentsService:
             PaymentSettled(
                 aggregate_id=intent.id,
                 tenant_id=intent.tenant_id,
+                kind=intent.kind.value,
                 sale_id=intent.sale_id,
+                vehicle_due_id=intent.vehicle_due_id,
                 amount_mnt=intent.amount_mnt,
                 settled_at=intent.settled_at or datetime.now(UTC),
             ),
@@ -324,7 +464,9 @@ class PaymentsService:
         logger.info(
             "payment_settled",
             intent_id=str(intent.id),
-            sale_id=str(intent.sale_id),
+            kind=intent.kind.value,
+            sale_id=str(intent.sale_id) if intent.sale_id else None,
+            vehicle_due_id=str(intent.vehicle_due_id) if intent.vehicle_due_id else None,
             amount_mnt=intent.amount_mnt,
         )
 

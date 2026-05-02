@@ -24,6 +24,21 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.platform.base import Base, TenantScoped, Timestamped, UuidPrimaryKey
 
 
+class PaymentIntentKind(StrEnum):
+    """What kind of payable a `PaymentIntent` is settling.
+
+    - `sale_payment`        — a marketplace sale, tenant-scoped, posts to
+                              the double-entry ledger on settlement.
+    - `vehicle_due_payment` — a tax / insurance / fines installment, NOT
+                              tenant-scoped, does NOT post to the ledger.
+                              The driver is paying the government, not a
+                              business.
+    """
+
+    sale_payment = "sale_payment"
+    vehicle_due_payment = "vehicle_due_payment"
+
+
 class PaymentIntentStatus(StrEnum):
     """Lifecycle of a QPay invoice attempt.
 
@@ -71,20 +86,47 @@ class LedgerDirection(StrEnum):
     credit = "credit"
 
 
-class PaymentIntent(UuidPrimaryKey, Timestamped, TenantScoped, Base):
-    """One QPay invoice attempt for a sale.
+class PaymentIntent(UuidPrimaryKey, Timestamped, Base):
+    """One QPay invoice attempt for a payable.
 
-    Unique on `sale_id` for now — refunds will get their own `refunds`
-    table later (additive migration). `sender_invoice_no` is unique
-    too: that's the merchant-side idempotency key QPay deduplicates on.
+    Polymorphic across two kinds:
+
+    - `sale_payment`        — `tenant_id` and `sale_id` are set; the row
+                              behaves like the original session-7 design
+                              and posts to the double-entry ledger on
+                              settlement.
+    - `vehicle_due_payment` — `vehicle_due_id` is set; both `tenant_id`
+                              and `sale_id` are null; settlement flips
+                              the due to `paid` via an outbox subscriber
+                              and does NOT touch the ledger.
+
+    The `tenant_id` column lives on the row (not via the `TenantScoped`
+    mixin) because vehicle dues have no tenant. Tenant isolation at the
+    repository layer still works — the sale-payment query path always
+    passes `tenant_id` explicitly. CHECK constraints in migration 0022
+    enforce the kind ↔ FK ↔ tenant_id invariant.
     """
 
     __tablename__ = "payment_intents"
 
-    sale_id: Mapped[uuid.UUID] = mapped_column(
+    kind: Mapped[PaymentIntentKind] = mapped_column(
+        SAEnum(PaymentIntentKind, name="payment_intent_kind", native_enum=True),
+        nullable=False,
+    )
+    tenant_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        nullable=True,
+        index=True,
+    )
+    sale_id: Mapped[uuid.UUID | None] = mapped_column(
         PG_UUID(as_uuid=True),
         ForeignKey("sales.id", ondelete="RESTRICT"),
-        nullable=False,
+        nullable=True,
+    )
+    vehicle_due_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("vehicle_dues.id", ondelete="RESTRICT"),
+        nullable=True,
     )
     amount_mnt: Mapped[int] = mapped_column(Integer, nullable=False)
     currency: Mapped[str] = mapped_column(Text, nullable=False, server_default="MNT")
@@ -100,7 +142,6 @@ class PaymentIntent(UuidPrimaryKey, Timestamped, TenantScoped, Base):
     settled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     __table_args__ = (
-        UniqueConstraint("sale_id", name="uq_payment_intents_sale_id"),
         UniqueConstraint("sender_invoice_no", name="uq_payment_intents_sender_invoice_no"),
     )
 

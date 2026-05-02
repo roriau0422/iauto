@@ -15,6 +15,7 @@ from app.payments.models import (
     PaymentEvent,
     PaymentEventKind,
     PaymentIntent,
+    PaymentIntentKind,
     PaymentIntentStatus,
 )
 
@@ -28,6 +29,10 @@ class PaymentIntentRepository:
 
     async def get_by_sale_id(self, sale_id: uuid.UUID) -> PaymentIntent | None:
         stmt = select(PaymentIntent).where(PaymentIntent.sale_id == sale_id)
+        return (await self.session.execute(stmt)).scalar_one_or_none()
+
+    async def get_by_vehicle_due_id(self, vehicle_due_id: uuid.UUID) -> PaymentIntent | None:
+        stmt = select(PaymentIntent).where(PaymentIntent.vehicle_due_id == vehicle_due_id)
         return (await self.session.execute(stmt)).scalar_one_or_none()
 
     async def get_by_qpay_invoice_id(self, qpay_invoice_id: str) -> PaymentIntent | None:
@@ -46,7 +51,9 @@ class PaymentIntentRepository:
         amount_mnt: int,
         invoice_code: str,
     ) -> PaymentIntent:
+        """Create a `sale_payment` intent (tenant-scoped marketplace path)."""
         intent = PaymentIntent(
+            kind=PaymentIntentKind.sale_payment,
             tenant_id=tenant_id,
             sale_id=sale_id,
             amount_mnt=amount_mnt,
@@ -60,6 +67,30 @@ class PaymentIntentRepository:
         self.session.add(intent)
         await self.session.flush()
         # Once the row has its UUID, set the sender_invoice_no to match.
+        intent.sender_invoice_no = str(intent.id)
+        await self.session.flush()
+        return intent
+
+    async def create_for_vehicle_due(
+        self,
+        *,
+        vehicle_due_id: uuid.UUID,
+        amount_mnt: int,
+        invoice_code: str,
+    ) -> PaymentIntent:
+        """Create a `vehicle_due_payment` intent (no tenant, no sale)."""
+        intent = PaymentIntent(
+            kind=PaymentIntentKind.vehicle_due_payment,
+            tenant_id=None,
+            sale_id=None,
+            vehicle_due_id=vehicle_due_id,
+            amount_mnt=amount_mnt,
+            qpay_invoice_code=invoice_code,
+            sender_invoice_no="",
+            status=PaymentIntentStatus.pending,
+        )
+        self.session.add(intent)
+        await self.session.flush()
         intent.sender_invoice_no = str(intent.id)
         await self.session.flush()
         return intent

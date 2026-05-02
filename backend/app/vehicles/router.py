@@ -10,6 +10,8 @@ from fastapi.responses import StreamingResponse
 
 from app.identity.dependencies import get_current_user
 from app.identity.models import User
+from app.payments.dependencies import get_payments_service
+from app.payments.service import PaymentsService
 from app.vehicles.dependencies import get_vehicles_service
 from app.vehicles.schemas import (
     LookupPlanEndpointOut,
@@ -18,6 +20,9 @@ from app.vehicles.schemas import (
     LookupReportOut,
     MyCarListOut,
     VehicleDeleteOut,
+    VehicleDueListOut,
+    VehicleDueOut,
+    VehicleDuePayOut,
     VehicleListOut,
     VehicleOut,
     VehicleRegisterIn,
@@ -256,3 +261,65 @@ async def list_vehicle_fines(
 ) -> MyCarListOut:
     await service.check_ownership(user_id=user.id, vehicle_id=vehicle_id)
     return MyCarListOut(vehicle_id=vehicle_id, items=[])
+
+
+# ---------------------------------------------------------------------------
+# Vehicle dues — tax / insurance / fines (session 24)
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/vehicles/{vehicle_id}/dues",
+    response_model=VehicleDueListOut,
+    summary="List a vehicle's payable obligations (owner only)",
+)
+async def list_vehicle_dues(
+    vehicle_id: uuid.UUID,
+    service: Annotated[VehiclesService, Depends(get_vehicles_service)],
+    user: Annotated[User, Depends(get_current_user)],
+) -> VehicleDueListOut:
+    rows = await service.list_dues(user_id=user.id, vehicle_id=vehicle_id)
+    return VehicleDueListOut(
+        vehicle_id=vehicle_id,
+        items=[VehicleDueOut.model_validate(r) for r in rows],
+    )
+
+
+@router.post(
+    "/vehicles/{vehicle_id}/dues/{due_id}/pay",
+    response_model=VehicleDuePayOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Kick off a QPay invoice for a tax / insurance / fines due",
+)
+async def pay_vehicle_due(
+    vehicle_id: uuid.UUID,
+    due_id: uuid.UUID,
+    service: Annotated[VehiclesService, Depends(get_vehicles_service)],
+    payments: Annotated[PaymentsService, Depends(get_payments_service)],
+    user: Annotated[User, Depends(get_current_user)],
+) -> VehicleDuePayOut:
+    """Mobile drives the QPay handoff with this endpoint.
+
+    Idempotent per `due_id`: a second call returns the existing intent +
+    a re-fetched QR is the mobile's job (the QPay invoice id is on the
+    response). Once the due flips to `paid` the endpoint refuses further
+    pay attempts.
+    """
+    from app.platform.errors import ConflictError
+    from app.vehicles.models import VehicleDueStatus
+
+    due = await service.get_due_for_payment(user_id=user.id, vehicle_id=vehicle_id, due_id=due_id)
+    if due.status == VehicleDueStatus.paid:
+        raise ConflictError("This due is already paid")
+
+    invoice = await payments.create_intent_for_vehicle_due(driver_id=user.id, vehicle_due=due)
+    service.attach_payment_intent(due=due, payment_intent_id=invoice.intent.id)
+
+    return VehicleDuePayOut(
+        due=VehicleDueOut.model_validate(due),
+        payment_intent_id=invoice.intent.id,
+        qr_text=invoice.qr_text,
+        qr_image_base64=invoice.qr_image_base64,
+        deeplink=invoice.deeplink,
+        urls=invoice.urls,
+    )

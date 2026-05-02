@@ -8,7 +8,9 @@ from enum import StrEnum
 from typing import Any
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     Enum as SAEnum,
@@ -307,3 +309,73 @@ class VehicleLookupReport(UuidPrimaryKey, Timestamped, Base):
         nullable=True,
     )
     plan_version: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class VehicleDueKind(StrEnum):
+    """Categories of vehicle obligations payable through the My Car screen."""
+
+    tax = "tax"
+    insurance = "insurance"
+    fines = "fines"
+
+
+class VehicleDueStatus(StrEnum):
+    """Lifecycle of a single vehicle due.
+
+    - `due`     — outstanding, on or before the due_date.
+    - `ok`      — confirmed not owed (e.g. authority feed says paid via
+                  another channel). Reserved for future ingestion.
+    - `overdue` — past `due_date`, not yet paid.
+    - `paid`    — settled via QPay through iAuto.
+    """
+
+    due = "due"
+    ok = "ok"
+    overdue = "overdue"
+    paid = "paid"
+
+
+class VehicleDue(UuidPrimaryKey, Timestamped, Base):
+    """One outstanding vehicle obligation (tax / insurance / fines).
+
+    `payment_intent_id` is a back-reference to the QPay invoice the
+    driver kicked off, set at the moment we call `PaymentsService`. Goes
+    null again on `ON DELETE SET NULL` if the intent is ever pruned (the
+    spec doesn't currently call for that, but the FK shape leaves room).
+
+    The DB CHECK in migration 0022 enforces `amount_mnt >= 0`.
+
+    NOTE: the table is owned by the vehicles context — dues are an
+    attribute of a physical vehicle, not of any business tenant. There
+    is no `tenant_id` column on this row.
+    """
+
+    __tablename__ = "vehicle_dues"
+
+    vehicle_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("vehicles.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    kind: Mapped[VehicleDueKind] = mapped_column(
+        SAEnum(VehicleDueKind, name="vehicle_due_kind", native_enum=True),
+        nullable=False,
+    )
+    amount_mnt: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    status: Mapped[VehicleDueStatus] = mapped_column(
+        SAEnum(VehicleDueStatus, name="vehicle_due_status", native_enum=True),
+        nullable=False,
+        default=VehicleDueStatus.due,
+    )
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    payment_intent_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        # FK is declared in migration 0022 (post-ddl) to break the
+        # creation-order cycle with payment_intents.
+        nullable=True,
+    )
+
+    __table_args__ = (
+        CheckConstraint("amount_mnt >= 0", name="ck_vehicle_dues_amount_non_negative"),
+    )

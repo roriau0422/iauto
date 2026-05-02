@@ -4400,6 +4400,204 @@
         "title": "VehicleDeleteOut",
         "type": "object"
       },
+      "VehicleDueKind": {
+        "description": "Categories of vehicle obligations payable through the My Car screen.",
+        "enum": [
+          "tax",
+          "insurance",
+          "fines"
+        ],
+        "title": "VehicleDueKind",
+        "type": "string"
+      },
+      "VehicleDueListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/VehicleDueOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "vehicle_id": {
+            "format": "uuid",
+            "title": "Vehicle Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "vehicle_id",
+          "items"
+        ],
+        "title": "VehicleDueListOut",
+        "type": "object"
+      },
+      "VehicleDueOut": {
+        "properties": {
+          "amount_mnt": {
+            "title": "Amount Mnt",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "due_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due Date"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/VehicleDueKind"
+          },
+          "paid_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paid At"
+          },
+          "payment_intent_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payment Intent Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/VehicleDueStatus"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "vehicle_id": {
+            "format": "uuid",
+            "title": "Vehicle Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "vehicle_id",
+          "kind",
+          "amount_mnt",
+          "due_date",
+          "status",
+          "paid_at",
+          "payment_intent_id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "VehicleDueOut",
+        "type": "object"
+      },
+      "VehicleDuePayOut": {
+        "description": "Response from `POST /vehicles/{vehicle_id}/dues/{due_id}/pay`.\n\nMirrors `PaymentIntentCreatedOut` shape (the existing sale-payment\nresponse) so the mobile screens can share invoice rendering code.",
+        "properties": {
+          "deeplink": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deeplink"
+          },
+          "due": {
+            "$ref": "#/components/schemas/VehicleDueOut"
+          },
+          "payment_intent_id": {
+            "format": "uuid",
+            "title": "Payment Intent Id",
+            "type": "string"
+          },
+          "qr_image_base64": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qr Image Base64"
+          },
+          "qr_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qr Text"
+          },
+          "urls": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Urls"
+          }
+        },
+        "required": [
+          "due",
+          "payment_intent_id",
+          "qr_text",
+          "qr_image_base64",
+          "deeplink",
+          "urls"
+        ],
+        "title": "VehicleDuePayOut",
+        "type": "object"
+      },
+      "VehicleDueStatus": {
+        "description": "Lifecycle of a single vehicle due.\n\n- `due`     — outstanding, on or before the due_date.\n- `ok`      — confirmed not owed (e.g. authority feed says paid via\n              another channel). Reserved for future ingestion.\n- `overdue` — past `due_date`, not yet paid.\n- `paid`    — settled via QPay through iAuto.",
+        "enum": [
+          "due",
+          "ok",
+          "overdue",
+          "paid"
+        ],
+        "title": "VehicleDueStatus",
+        "type": "string"
+      },
       "VehicleListOut": {
         "properties": {
           "items": {
@@ -10325,6 +10523,135 @@
           }
         },
         "summary": "Unregister a vehicle (owner-only, leaves the vehicle row intact)",
+        "tags": [
+          "vehicles"
+        ]
+      }
+    },
+    "/v1/vehicles/{vehicle_id}/dues": {
+      "get": {
+        "operationId": "list_vehicle_dues_v1_vehicles__vehicle_id__dues_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "vehicle_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Vehicle Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleDueListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List a vehicle's payable obligations (owner only)",
+        "tags": [
+          "vehicles"
+        ]
+      }
+    },
+    "/v1/vehicles/{vehicle_id}/dues/{due_id}/pay": {
+      "post": {
+        "description": "Mobile drives the QPay handoff with this endpoint.\n\nIdempotent per `due_id`: a second call returns the existing intent +\na re-fetched QR is the mobile's job (the QPay invoice id is on the\nresponse). Once the due flips to `paid` the endpoint refuses further\npay attempts.",
+        "operationId": "pay_vehicle_due_v1_vehicles__vehicle_id__dues__due_id__pay_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "vehicle_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Vehicle Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "due_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Due Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleDuePayOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Kick off a QPay invoice for a tax / insurance / fines due",
         "tags": [
           "vehicles"
         ]

@@ -29,6 +29,7 @@ from app.platform.observability import (
     metrics_endpoint,
 )
 from app.platform.rate_limit import AuthRateLimitMiddleware
+from app.vehicles.handlers import register as register_vehicles_handlers
 
 
 @asynccontextmanager
@@ -50,6 +51,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     register_chat_handlers()
     register_notification_handlers()
     register_ads_handlers()
+    register_vehicles_handlers()
 
     logger.info("startup_complete")
     try:

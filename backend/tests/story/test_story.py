@@ -345,8 +345,11 @@ async def test_feed_mixes_driver_and_business_posts(
     ids_in_feed = {p.id for p in feed.items}
     assert biz_post.id in ids_in_feed
     assert drv_post.id in ids_in_feed
-    # Newest first — driver post created last.
-    assert feed.items[0].id == drv_post.id
+    # Newest first by `(created_at, id) DESC`. The two posts are created
+    # in the same transaction so they share `created_at` to sub-second
+    # precision; the deterministic tie-break is by id descending.
+    expected_first = drv_post.id if drv_post.id > biz_post.id else biz_post.id
+    assert feed.items[0].id == expected_first
 
 
 async def test_business_can_filter_to_own_posts_via_tenant_id(

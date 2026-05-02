@@ -25,6 +25,7 @@ from app.vehicles.events import (
 )
 from app.vehicles.models import (
     Vehicle,
+    VehicleDue,
     VehicleLookupPlan,
     VerificationSource,
     parse_import_month,
@@ -34,6 +35,7 @@ from app.vehicles.repository import (
     LookupPlanRepository,
     LookupReportRepository,
     OwnershipRepository,
+    VehicleDueRepository,
     VehicleRepository,
 )
 from app.vehicles.schemas import XypPayloadIn, mask_plate
@@ -77,6 +79,7 @@ class VehiclesService:
         self.ownerships = OwnershipRepository(session)
         self.plans = LookupPlanRepository(session)
         self.reports = LookupReportRepository(session)
+        self.dues = VehicleDueRepository(session)
         self.catalog = CatalogService(session)
         self.alerter = XypAlerter(redis=redis, sms=sms, settings=settings)
 
@@ -244,6 +247,55 @@ class VehiclesService:
         await self.session.delete(log)
         await self.session.flush()
         logger.info("service_log_deleted", log_id=str(log_id))
+
+    # ---- vehicle dues -----------------------------------------------------
+
+    async def list_dues(
+        self,
+        *,
+        user_id: uuid.UUID,
+        vehicle_id: uuid.UUID,
+    ) -> list[VehicleDue]:
+        """Return tax / insurance / fines rows for a vehicle the user owns.
+
+        Returns the empty list when nothing has been ingested yet (the
+        production case until a real data feed lands). Ownership is the
+        gate: a non-owner gets the same opaque 404 as a missing vehicle.
+        """
+        await self.check_ownership(user_id=user_id, vehicle_id=vehicle_id)
+        return await self.dues.list_for_vehicle(vehicle_id=vehicle_id)
+
+    async def get_due_for_payment(
+        self,
+        *,
+        user_id: uuid.UUID,
+        vehicle_id: uuid.UUID,
+        due_id: uuid.UUID,
+    ) -> VehicleDue:
+        """Resolve a payable due for a caller who owns the vehicle.
+
+        The check sequence: vehicle exists + caller owns it, due exists +
+        belongs to that vehicle, due is not already paid. Each failure
+        returns 404 to avoid leaking which step failed.
+        """
+        await self.check_ownership(user_id=user_id, vehicle_id=vehicle_id)
+        due = await self.dues.get_by_id(due_id)
+        if due is None or due.vehicle_id != vehicle_id:
+            raise NotFoundError("Due not found")
+        return due
+
+    def attach_payment_intent(
+        self,
+        *,
+        due: VehicleDue,
+        payment_intent_id: uuid.UUID,
+    ) -> None:
+        """Stamp the active QPay invoice id onto the due.
+
+        Sync helper — the caller is already inside the same async session
+        and has just had the payments service create the intent.
+        """
+        due.payment_intent_id = payment_intent_id
 
     async def unregister(self, *, user_id: uuid.UUID, vehicle_id: uuid.UUID) -> None:
         vehicle = await self.vehicles.get_by_id(vehicle_id)

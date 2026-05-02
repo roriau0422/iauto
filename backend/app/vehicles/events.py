@@ -53,3 +53,14 @@ class VehicleServiceLogged(DomainEvent):
     vehicle_id: uuid.UUID
     user_id: uuid.UUID
     kind: str
+
+
+class VehicleDuePaid(DomainEvent):
+    """A vehicle due transitioned to `paid` after QPay settlement."""
+
+    event_type: Literal["vehicles.due_paid"] = "vehicles.due_paid"
+    aggregate_type: Literal["vehicle_due"] = "vehicle_due"
+    vehicle_id: uuid.UUID
+    payment_intent_id: uuid.UUID
+    amount_mnt: int
+    kind: str
