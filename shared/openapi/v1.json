@@ -3527,6 +3527,15 @@
         "title": "StockMovementOut",
         "type": "object"
       },
+      "StoryAuthorKind": {
+        "description": "Whether a story post was published by a driver or a business.\n\nDrivers post personal updates to the public feed; businesses post on\nbehalf of their tenant. The `author_kind = 'business'` ↔ `tenant_id IS\nNOT NULL` invariant is enforced in the DB by a CHECK constraint\ndeclared in migration 0021.",
+        "enum": [
+          "driver",
+          "business"
+        ],
+        "title": "StoryAuthorKind",
+        "type": "string"
+      },
       "StoryCommentCreateIn": {
         "properties": {
           "body": {
@@ -3696,6 +3705,9 @@
       },
       "StoryPostOut": {
         "properties": {
+          "author_kind": {
+            "$ref": "#/components/schemas/StoryAuthorKind"
+          },
           "author_user_id": {
             "format": "uuid",
             "title": "Author User Id",
@@ -3732,9 +3744,16 @@
             "type": "array"
           },
           "tenant_id": {
-            "format": "uuid",
-            "title": "Tenant Id",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenant Id"
           },
           "updated_at": {
             "format": "date-time",
@@ -3745,6 +3764,7 @@
         "required": [
           "id",
           "tenant_id",
+          "author_kind",
           "author_user_id",
           "body",
           "media_asset_ids",
@@ -9503,14 +9523,76 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Public timeline of business posts, newest first",
+        "summary": "Public timeline of all posts (driver + business), newest first",
         "tags": [
           "story"
         ]
       }
     },
     "/v1/story/posts": {
+      "get": {
+        "description": "Same payload as `GET /story/feed`. Mobile clients use this path\nname; the older `/story/feed` is kept as an alias.",
+        "operationId": "list_posts_v1_story_posts_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "before_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Before Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoryFeedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Public list of all posts (driver + business), newest first",
+        "tags": [
+          "story"
+        ]
+      },
       "post": {
+        "description": "Driver callers publish a personal post (no `tenant_id`).\n\nBusiness callers — anyone whose `User.role` is `business` and who has\nat least one business membership — publish on behalf of that tenant.",
         "operationId": "publish_post_v1_story_posts_post",
         "parameters": [
           {
@@ -9562,7 +9644,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Publish a story post (any business member)",
+        "summary": "Publish a story post (driver = personal; business member = tenant post)",
         "tags": [
           "story"
         ]

@@ -7,7 +7,7 @@ import uuid
 from sqlalchemy import delete, func, literal, select, tuple_ as sa_tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.story.models import StoryComment, StoryLike, StoryPost
+from app.story.models import StoryAuthorKind, StoryComment, StoryLike, StoryPost
 
 
 class StoryPostRepository:
@@ -20,12 +20,14 @@ class StoryPostRepository:
     async def create(
         self,
         *,
-        tenant_id: uuid.UUID,
+        author_kind: StoryAuthorKind,
+        tenant_id: uuid.UUID | None,
         author_user_id: uuid.UUID,
         body: str,
         media_asset_ids: list[uuid.UUID],
     ) -> StoryPost:
         post = StoryPost(
+            author_kind=author_kind,
             tenant_id=tenant_id,
             author_user_id=author_user_id,
             body=body,
@@ -34,6 +36,42 @@ class StoryPostRepository:
         self.session.add(post)
         await self.session.flush()
         return post
+
+    async def list_for_tenant(
+        self,
+        *,
+        tenant_id: uuid.UUID,
+        limit: int,
+        before_id: uuid.UUID | None,
+    ) -> tuple[list[StoryPost], bool]:
+        """Newest-first feed scoped to a single business tenant.
+
+        Used by `GET /story/posts?tenant_id=...` (or by analytics paths
+        that need the tenant's own posts). The repo takes `tenant_id`
+        as a required arg per the architecture's tenant-isolation rule.
+        """
+        stmt = (
+            select(StoryPost)
+            .where(StoryPost.tenant_id == tenant_id)
+            .order_by(StoryPost.created_at.desc(), StoryPost.id.desc())
+            .limit(limit + 1)
+        )
+        if before_id is not None:
+            cursor = await self.session.get(StoryPost, before_id)
+            if cursor is not None:
+                stmt = (
+                    select(StoryPost)
+                    .where(
+                        StoryPost.tenant_id == tenant_id,
+                        sa_tuple(StoryPost.created_at, StoryPost.id)
+                        < sa_tuple(literal(cursor.created_at), literal(cursor.id)),
+                    )
+                    .order_by(StoryPost.created_at.desc(), StoryPost.id.desc())
+                    .limit(limit + 1)
+                )
+        rows = list((await self.session.execute(stmt)).scalars())
+        has_more = len(rows) > limit
+        return rows[:limit], has_more
 
     async def list_feed(
         self,

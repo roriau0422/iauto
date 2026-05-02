@@ -12,6 +12,7 @@ class StoryPostPublished(DomainEvent):
     event_type: Literal["story.post_published"] = "story.post_published"
     aggregate_type: Literal["story_post"] = "story_post"
     author_user_id: uuid.UUID
+    author_kind: str
 
 
 class StoryPostLiked(DomainEvent):

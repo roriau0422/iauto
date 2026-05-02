@@ -20,7 +20,7 @@ from app.story.events import (
     StoryPostLiked,
     StoryPostPublished,
 )
-from app.story.models import StoryComment, StoryPost
+from app.story.models import StoryAuthorKind, StoryComment, StoryPost
 from app.story.repository import (
     StoryCommentRepository,
     StoryLikeRepository,
@@ -66,10 +66,40 @@ class StoryService:
 
     # ---- posts ----------------------------------------------------------
 
-    async def publish(
+    async def publish_as_business(
         self,
         *,
         tenant_id: uuid.UUID,
+        author_user_id: uuid.UUID,
+        payload: StoryPostCreateIn,
+    ) -> StoryPost:
+        """A business member publishes on behalf of the tenant."""
+        return await self._publish(
+            author_kind=StoryAuthorKind.business,
+            tenant_id=tenant_id,
+            author_user_id=author_user_id,
+            payload=payload,
+        )
+
+    async def publish_as_driver(
+        self,
+        *,
+        author_user_id: uuid.UUID,
+        payload: StoryPostCreateIn,
+    ) -> StoryPost:
+        """A driver publishes a personal post — no tenant binding."""
+        return await self._publish(
+            author_kind=StoryAuthorKind.driver,
+            tenant_id=None,
+            author_user_id=author_user_id,
+            payload=payload,
+        )
+
+    async def _publish(
+        self,
+        *,
+        author_kind: StoryAuthorKind,
+        tenant_id: uuid.UUID | None,
         author_user_id: uuid.UUID,
         payload: StoryPostCreateIn,
     ) -> StoryPost:
@@ -79,6 +109,7 @@ class StoryService:
             purpose=MediaAssetPurpose.story,
         )
         post = await self.posts.create(
+            author_kind=author_kind,
             tenant_id=tenant_id,
             author_user_id=author_user_id,
             body=payload.body,
@@ -90,12 +121,14 @@ class StoryService:
                 aggregate_id=post.id,
                 tenant_id=tenant_id,
                 author_user_id=author_user_id,
+                author_kind=author_kind.value,
             ),
         )
         logger.info(
             "story_post_published",
             post_id=str(post.id),
-            tenant_id=str(tenant_id),
+            tenant_id=str(tenant_id) if tenant_id is not None else None,
+            author_kind=author_kind.value,
         )
         return post
 
@@ -116,9 +149,12 @@ class StoryService:
         actor_user_id: uuid.UUID,
     ) -> None:
         post = await self.get(post_id)
-        # Author can always delete. Business owner can also delete on
-        # their tenant's posts.
+        # Author can always delete. For business-authored posts, the
+        # business owner can also delete (moderation safety net). Driver
+        # posts have no co-author concept — only the author can remove.
         if post.author_user_id != actor_user_id:
+            if post.tenant_id is None:
+                raise ForbiddenError("Only the author can delete")
             member = await self.members.get(post.tenant_id, actor_user_id)
             from app.businesses.models import BusinessMemberRole
 
@@ -217,7 +253,11 @@ class StoryService:
             # the type checker doesn't know that.
             raise NotFoundError("Post not found")
         if comment.author_user_id != actor_user_id:
-            # Non-author: only the post's business owner can delete.
+            # Non-author: only the post's business owner can delete. Driver
+            # posts have no business owner — comments on them can only be
+            # removed by their own author.
+            if post.tenant_id is None:
+                raise ForbiddenError("Only the comment author can delete")
             from app.businesses.models import BusinessMemberRole
 
             member = await self.members.get(post.tenant_id, actor_user_id)

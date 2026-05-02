@@ -8,6 +8,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.story.models import StoryAuthorKind
+
 MAX_BODY = 4000
 MAX_COMMENT_BODY = 2000
 MAX_MEDIA = 8
@@ -46,7 +48,8 @@ class StoryPostOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
-    tenant_id: uuid.UUID
+    tenant_id: uuid.UUID | None
+    author_kind: StoryAuthorKind
     author_user_id: uuid.UUID
     body: str
     media_asset_ids: list[uuid.UUID]

@@ -7,12 +7,10 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, status
 
-from app.businesses.dependencies import (
-    BusinessContext,
-    get_current_business_member,
-)
+from app.businesses.dependencies import get_businesses_service
+from app.businesses.service import BusinessesService
 from app.identity.dependencies import get_current_user
-from app.identity.models import User
+from app.identity.models import User, UserRole
 from app.story.dependencies import get_story_service
 from app.story.schemas import (
     StoryCommentCreateIn,
@@ -39,13 +37,33 @@ router = APIRouter(tags=["story"])
 @router.get(
     "/story/feed",
     response_model=StoryFeedOut,
-    summary="Public timeline of business posts, newest first",
+    summary="Public timeline of all posts (driver + business), newest first",
 )
 async def get_feed(
     service: Annotated[StoryService, Depends(get_story_service)],
     limit: Annotated[int, Query(ge=1, le=50)] = 20,
     before_id: Annotated[uuid.UUID | None, Query()] = None,
 ) -> StoryFeedOut:
+    result = await service.list_feed(limit=limit, before_id=before_id)
+    return StoryFeedOut(
+        items=[StoryPostOut.model_validate(p) for p in result.items],
+        has_more=result.has_more,
+    )
+
+
+@router.get(
+    "/story/posts",
+    response_model=StoryFeedOut,
+    summary="Public list of all posts (driver + business), newest first",
+)
+async def list_posts(
+    service: Annotated[StoryService, Depends(get_story_service)],
+    limit: Annotated[int, Query(ge=1, le=50)] = 20,
+    before_id: Annotated[uuid.UUID | None, Query()] = None,
+) -> StoryFeedOut:
+    """Same payload as `GET /story/feed`. Mobile clients use this path
+    name; the older `/story/feed` is kept as an alias.
+    """
     result = await service.list_feed(limit=limit, before_id=before_id)
     return StoryFeedOut(
         items=[StoryPostOut.model_validate(p) for p in result.items],
@@ -93,16 +111,45 @@ async def list_comments(
     "/story/posts",
     response_model=StoryPostOut,
     status_code=status.HTTP_201_CREATED,
-    summary="Publish a story post (any business member)",
+    summary="Publish a story post (driver = personal; business member = tenant post)",
 )
 async def publish_post(
     body: StoryPostCreateIn,
     service: Annotated[StoryService, Depends(get_story_service)],
-    ctx: Annotated[BusinessContext, Depends(get_current_business_member)],
+    businesses: Annotated[BusinessesService, Depends(get_businesses_service)],
     user: Annotated[User, Depends(get_current_user)],
 ) -> StoryPostOut:
-    post = await service.publish(
-        tenant_id=ctx.business.id,
+    """Driver callers publish a personal post (no `tenant_id`).
+
+    Business callers — anyone whose `User.role` is `business` and who has
+    at least one business membership — publish on behalf of that tenant.
+    """
+    if user.role == UserRole.driver:
+        post = await service.publish_as_driver(
+            author_user_id=user.id,
+            payload=body,
+        )
+        return StoryPostOut.model_validate(post)
+
+    # role == business / admin → require an actual business membership.
+    memberships = await businesses.members.list_for_user(user.id)
+    if not memberships:
+        from app.platform.errors import ForbiddenError
+
+        raise ForbiddenError("Drivers + business members can post")
+
+    # Owner-linked business takes precedence (parity with
+    # get_current_business_member). Falls back to the first membership.
+    target_business_id: uuid.UUID | None = None
+    if user.role == UserRole.business:
+        owned = await businesses.businesses.get_by_owner(user.id)
+        if owned is not None and any(m.business_id == owned.id for m in memberships):
+            target_business_id = owned.id
+    if target_business_id is None:
+        target_business_id = memberships[0].business_id
+
+    post = await service.publish_as_business(
+        tenant_id=target_business_id,
         author_user_id=user.id,
         payload=body,
     )

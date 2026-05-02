@@ -72,13 +72,14 @@ async def test_publish_post_emits_event(
         businesses_service=businesses_service,
         owner_phone="+97688113001",
     )
-    post = await story.publish(
+    post = await story.publish_as_business(
         tenant_id=business_id,
         author_user_id=owner.id,
         payload=StoryPostCreateIn(body="Hello iAuto"),
     )
     assert post.tenant_id == business_id
     assert post.author_user_id == owner.id
+    assert post.author_kind.value == "business"
 
     events = (await db_session.execute(select(OutboxEvent))).scalars().all()
     published = [e for e in events if e.event_type == "story.post_published"]
@@ -106,7 +107,7 @@ async def test_delete_post_author_or_owner(
         role=BusinessMemberRole.manager,
     )
 
-    post = await story.publish(
+    post = await story.publish_as_business(
         tenant_id=business_id,
         author_user_id=manager.id,
         payload=StoryPostCreateIn(body="manager post"),
@@ -139,7 +140,7 @@ async def test_feed_paginates_newest_first(
         owner_phone="+97688113005",
     )
     for i in range(5):
-        await story.publish(
+        await story.publish_as_business(
             tenant_id=business_id,
             author_user_id=owner.id,
             payload=StoryPostCreateIn(body=f"post {i}"),
@@ -169,7 +170,7 @@ async def test_like_unlike_idempotent(
         businesses_service=businesses_service,
         owner_phone="+97688113006",
     )
-    post = await story.publish(
+    post = await story.publish_as_business(
         tenant_id=business_id,
         author_user_id=owner.id,
         payload=StoryPostCreateIn(body="like me"),
@@ -205,7 +206,7 @@ async def test_comment_increments_counter(
         businesses_service=businesses_service,
         owner_phone="+97688113008",
     )
-    post = await story.publish(
+    post = await story.publish_as_business(
         tenant_id=business_id,
         author_user_id=owner.id,
         payload=StoryPostCreateIn(body="discuss"),
@@ -230,7 +231,7 @@ async def test_delete_comment_author_or_owner(
         businesses_service=businesses_service,
         owner_phone="+97688113010",
     )
-    post = await story.publish(
+    post = await story.publish_as_business(
         tenant_id=business_id,
         author_user_id=owner.id,
         payload=StoryPostCreateIn(body="moderation test"),
@@ -272,7 +273,7 @@ async def test_list_comments_pages_with_before_id(
         businesses_service=businesses_service,
         owner_phone="+97688113013",
     )
-    post = await story.publish(
+    post = await story.publish_as_business(
         tenant_id=business_id,
         author_user_id=owner.id,
         payload=StoryPostCreateIn(body="paginate me"),
@@ -291,3 +292,114 @@ async def test_list_comments_pages_with_before_id(
     page2 = await story.list_comments(post_id=post.id, limit=3, before_id=page1.items[-1].id)
     assert len(page2.items) == 2
     assert page2.has_more is False
+
+
+# ---------------------------------------------------------------------------
+# Driver-authored posts (session 23)
+# ---------------------------------------------------------------------------
+
+
+async def test_publish_as_driver_no_tenant(
+    story: StoryService,
+    db_session: AsyncSession,
+) -> None:
+    driver = await _make_user(db_session, "+97688113101")
+    post = await story.publish_as_driver(
+        author_user_id=driver.id,
+        payload=StoryPostCreateIn(body="Just bought a Prius!"),
+    )
+    assert post.tenant_id is None
+    assert post.author_kind.value == "driver"
+    assert post.author_user_id == driver.id
+
+    events = (await db_session.execute(select(OutboxEvent))).scalars().all()
+    published = [e for e in events if e.event_type == "story.post_published"]
+    assert len(published) == 1
+    assert published[0].payload["author_kind"] == "driver"
+    assert published[0].tenant_id is None
+
+
+async def test_feed_mixes_driver_and_business_posts(
+    story: StoryService,
+    businesses_service: BusinessesService,
+    db_session: AsyncSession,
+) -> None:
+    owner, business_id = await _make_business(
+        db_session=db_session,
+        businesses_service=businesses_service,
+        owner_phone="+97688113102",
+    )
+    driver = await _make_user(db_session, "+97688113103")
+
+    biz_post = await story.publish_as_business(
+        tenant_id=business_id,
+        author_user_id=owner.id,
+        payload=StoryPostCreateIn(body="Sale on brake pads"),
+    )
+    drv_post = await story.publish_as_driver(
+        author_user_id=driver.id,
+        payload=StoryPostCreateIn(body="My new wheels"),
+    )
+
+    feed = await story.list_feed(limit=10, before_id=None)
+    ids_in_feed = {p.id for p in feed.items}
+    assert biz_post.id in ids_in_feed
+    assert drv_post.id in ids_in_feed
+    # Newest first — driver post created last.
+    assert feed.items[0].id == drv_post.id
+
+
+async def test_business_can_filter_to_own_posts_via_tenant_id(
+    story: StoryService,
+    businesses_service: BusinessesService,
+    db_session: AsyncSession,
+) -> None:
+    """Tenant isolation still works: filtering by tenant_id excludes other
+    tenants' posts AND driver-personal posts.
+    """
+    owner_a, business_a = await _make_business(
+        db_session=db_session,
+        businesses_service=businesses_service,
+        owner_phone="+97688113104",
+    )
+    owner_b, business_b = await _make_business(
+        db_session=db_session,
+        businesses_service=businesses_service,
+        owner_phone="+97688113105",
+    )
+    driver = await _make_user(db_session, "+97688113106")
+
+    a_post = await story.publish_as_business(
+        tenant_id=business_a,
+        author_user_id=owner_a.id,
+        payload=StoryPostCreateIn(body="A"),
+    )
+    await story.publish_as_business(
+        tenant_id=business_b,
+        author_user_id=owner_b.id,
+        payload=StoryPostCreateIn(body="B"),
+    )
+    await story.publish_as_driver(
+        author_user_id=driver.id,
+        payload=StoryPostCreateIn(body="D"),
+    )
+
+    rows, _ = await story.posts.list_for_tenant(tenant_id=business_a, limit=10, before_id=None)
+    assert [p.id for p in rows] == [a_post.id]
+
+
+async def test_driver_post_only_author_can_delete(
+    story: StoryService,
+    db_session: AsyncSession,
+) -> None:
+    driver = await _make_user(db_session, "+97688113107")
+    stranger = await _make_user(db_session, "+97688113108")
+    post = await story.publish_as_driver(
+        author_user_id=driver.id,
+        payload=StoryPostCreateIn(body="personal"),
+    )
+    with pytest.raises(ForbiddenError):
+        await story.delete(post_id=post.id, actor_user_id=stranger.id)
+    await story.delete(post_id=post.id, actor_user_id=driver.id)
+    with pytest.raises(NotFoundError):
+        await story.get(post.id)
