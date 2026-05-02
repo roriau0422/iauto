@@ -7,6 +7,7 @@ subscriber reads them yet — ARCHITECTURE.md decision 3.
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from typing import Any, Literal
 
 from app.platform.events import DomainEvent
@@ -27,7 +28,7 @@ class PartSearchSubmitted(DomainEvent):
     vehicle_brand_id: uuid.UUID | None
     vehicle_model_id: uuid.UUID | None
     description: str
-    media_urls: list[Any]
+    media_asset_ids: list[Any]
 
 
 class PartSearchCancelled(DomainEvent):
@@ -52,3 +53,59 @@ class QuoteSent(DomainEvent):
     driver_id: uuid.UUID
     price_mnt: int
     condition: str
+
+
+# ---------------------------------------------------------------------------
+# Session 6 — reservations, sales, reviews
+# ---------------------------------------------------------------------------
+
+
+class ReservationStarted(DomainEvent):
+    event_type: Literal["marketplace.reservation_started"] = "marketplace.reservation_started"
+    aggregate_type: Literal["reservation"] = "reservation"
+    quote_id: uuid.UUID
+    part_search_id: uuid.UUID
+    driver_id: uuid.UUID
+    expires_at: datetime
+    price_mnt: int
+
+
+class ReservationCancelled(DomainEvent):
+    event_type: Literal["marketplace.reservation_cancelled"] = "marketplace.reservation_cancelled"
+    aggregate_type: Literal["reservation"] = "reservation"
+    quote_id: uuid.UUID
+    part_search_id: uuid.UUID
+    driver_id: uuid.UUID
+
+
+class ReservationExpired(DomainEvent):
+    """Emitted by the Arq cron when a hold runs past `expires_at`.
+
+    `tenant_id` is set on the envelope so the analytics consumer can
+    bucket expirations by business without joining against the row.
+    """
+
+    event_type: Literal["marketplace.reservation_expired"] = "marketplace.reservation_expired"
+    aggregate_type: Literal["reservation"] = "reservation"
+    quote_id: uuid.UUID
+    part_search_id: uuid.UUID
+    driver_id: uuid.UUID
+
+
+class SaleCompleted(DomainEvent):
+    event_type: Literal["marketplace.sale_completed"] = "marketplace.sale_completed"
+    aggregate_type: Literal["sale"] = "sale"
+    reservation_id: uuid.UUID
+    quote_id: uuid.UUID
+    part_search_id: uuid.UUID
+    driver_id: uuid.UUID
+    price_mnt: int
+
+
+class ReviewSubmitted(DomainEvent):
+    event_type: Literal["marketplace.review_submitted"] = "marketplace.review_submitted"
+    aggregate_type: Literal["review"] = "review"
+    sale_id: uuid.UUID
+    direction: str
+    author_user_id: uuid.UUID
+    rating: int

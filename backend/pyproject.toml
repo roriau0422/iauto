@@ -30,6 +30,7 @@ dependencies = [
   "arq>=0.26",
   "httpx>=0.28",
   "tenacity>=9.0",
+  "boto3>=1.35",            # S3-compatible client (talks to MinIO via endpoint_url)
 
   # Logging
   "structlog>=24.4",
@@ -45,6 +46,7 @@ dev = [
   "asgi-lifespan>=2.1",
   "freezegun>=1.5",
   "types-python-dateutil>=2.9",
+  "boto3-stubs[s3]>=1.35",
 ]
 
 [build-system]
@@ -139,6 +141,7 @@ ignore_errors = true
 # rather than fight the ecosystem.
 module = [
   "arq.*",
+  "botocore.*",
 ]
 ignore_missing_imports = true
 

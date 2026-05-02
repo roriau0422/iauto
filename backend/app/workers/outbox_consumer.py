@@ -27,6 +27,7 @@ from app.platform.db import build_engine, build_sessionmaker
 from app.platform.events import DomainEvent
 from app.platform.logging import configure_logging, get_logger
 from app.platform.outbox import OutboxEvent, get_handlers
+from app.workers import reservations as reservations_worker
 
 logger = get_logger("app.workers.outbox")
 
@@ -124,6 +125,17 @@ async def tick(ctx: dict[str, Any]) -> int:
     return await run_once(session_factory)
 
 
+async def reservation_expiry_tick(ctx: dict[str, Any]) -> int:
+    """Cron entry point that expires past-due marketplace reservations.
+
+    The job is in its own module (`app.workers.reservations`) so the
+    business logic is unit-testable without standing up arq. This thin
+    shim adapts the arq context shape.
+    """
+    session_factory: async_sessionmaker[AsyncSession] = ctx["session_factory"]
+    return await reservations_worker.run_once(session_factory)
+
+
 async def startup(ctx: dict[str, Any]) -> None:
     settings = get_settings()
     configure_logging(settings)
@@ -163,7 +175,7 @@ class WorkerSettings:
         arq app.workers.outbox_consumer.WorkerSettings
     """
 
-    functions: ClassVar[list[Any]] = [tick]
+    functions: ClassVar[list[Any]] = [tick, reservation_expiry_tick]
     on_startup = staticmethod(startup)
     on_shutdown = staticmethod(shutdown)
     cron_jobs: ClassVar[list[CronJob]] = [
@@ -178,7 +190,18 @@ class WorkerSettings:
             # keep_result=0 → don't bloat Redis with per-tick job results,
             # we don't consult them from anywhere.
             keep_result=0,
-        )
+        ),
+        cron(
+            reservation_expiry_tick,
+            name="reservation_expiry_tick",
+            # Once a minute is plenty — reservations have hour-scale TTLs.
+            # second=0 is the deterministic minute boundary; arq doesn't
+            # mind if multiple ticks coincide.
+            second={0},
+            run_at_startup=True,
+            timeout=30,
+            keep_result=0,
+        ),
     ]
 
     @property

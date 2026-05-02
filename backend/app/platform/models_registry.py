@@ -16,7 +16,16 @@ from app.catalog.models import VehicleBrand, VehicleCountry, VehicleModel
 from app.identity.models import Device, RefreshToken, User
 
 # -- marketplace -------------------------------------------------------------
-from app.marketplace.models import PartSearchRequest, Quote
+from app.marketplace.models import (
+    PartSearchRequest,
+    Quote,
+    Reservation,
+    Review,
+    Sale,
+)
+
+# -- media -------------------------------------------------------------------
+from app.media.models import MediaAsset
 
 # -- platform-owned tables (outbox, event archive) ---------------------------
 from app.platform.outbox import OutboxEvent
@@ -33,10 +42,14 @@ __all__: list[str] = [
     "Business",
     "BusinessVehicleBrand",
     "Device",
+    "MediaAsset",
     "OutboxEvent",
     "PartSearchRequest",
     "Quote",
     "RefreshToken",
+    "Reservation",
+    "Review",
+    "Sale",
     "User",
     "Vehicle",
     "VehicleBrand",

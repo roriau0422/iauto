@@ -20,12 +20,14 @@ from app.identity.providers.sms import InMemorySmsProvider
 from app.marketplace.models import PartSearchRequest, PartSearchStatus, QuoteCondition
 from app.marketplace.schemas import PartSearchCreateIn, QuoteCreateIn
 from app.marketplace.service import MarketplaceService
+from app.media.service import MediaService
 from app.platform.config import Settings
 from app.platform.errors import ConflictError, ForbiddenError, NotFoundError
 from app.platform.outbox import OutboxEvent
 from app.vehicles.models import SteeringSide
 from app.vehicles.schemas import XypPayloadIn
 from app.vehicles.service import VehiclesService
+from tests.media.test_service import BUCKET, FakeMediaClient
 
 PLATE_A = "9987УБӨ"
 PLATE_B = "1234УБА"
@@ -92,15 +94,22 @@ def businesses_service(db_session: AsyncSession) -> BusinessesService:
 
 
 @pytest.fixture
+def media_service(db_session: AsyncSession) -> MediaService:
+    return MediaService(session=db_session, client=FakeMediaClient(), bucket=BUCKET)
+
+
+@pytest.fixture
 def marketplace(
     db_session: AsyncSession,
     vehicles_service: VehiclesService,
     businesses_service: BusinessesService,
+    media_service: MediaService,
 ) -> MarketplaceService:
     return MarketplaceService(
         session=db_session,
         vehicles_svc=vehicles_service,
         businesses_svc=businesses_service,
+        media_svc=media_service,
     )
 
 
@@ -475,6 +484,7 @@ async def test_submit_quote_happy_path_emits_event(
 
     quote = await marketplace.submit_quote(
         business_id=business.id,
+        owner_user_id=owner.id,
         search_id=request.id,
         payload=QuoteCreateIn(
             price_mnt=150_000,
@@ -527,6 +537,7 @@ async def test_submit_quote_rejects_non_open_search(
     with pytest.raises(ConflictError):
         await marketplace.submit_quote(
             business_id=business.id,
+            owner_user_id=owner.id,
             search_id=request.id,
             payload=QuoteCreateIn(price_mnt=1, condition=QuoteCondition.used),
         )
@@ -559,12 +570,14 @@ async def test_submit_quote_rejects_duplicate(
 
     await marketplace.submit_quote(
         business_id=business.id,
+        owner_user_id=owner.id,
         search_id=request.id,
         payload=QuoteCreateIn(price_mnt=100, condition=QuoteCondition.new),
     )
     with pytest.raises(ConflictError):
         await marketplace.submit_quote(
             business_id=business.id,
+            owner_user_id=owner.id,
             search_id=request.id,
             payload=QuoteCreateIn(price_mnt=200, condition=QuoteCondition.used),
         )
@@ -598,6 +611,7 @@ async def test_submit_quote_rejects_brand_outside_coverage(
     with pytest.raises(ForbiddenError):
         await marketplace.submit_quote(
             business_id=business.id,
+            owner_user_id=owner.id,
             search_id=request.id,
             payload=QuoteCreateIn(price_mnt=100, condition=QuoteCondition.new),
         )
@@ -632,6 +646,7 @@ async def test_submit_quote_rejects_year_out_of_range(
     with pytest.raises(ForbiddenError):
         await marketplace.submit_quote(
             business_id=business.id,
+            owner_user_id=owner.id,
             search_id=request.id,
             payload=QuoteCreateIn(price_mnt=100, condition=QuoteCondition.new),
         )
@@ -649,6 +664,7 @@ async def test_submit_quote_404_when_search_missing(
     with pytest.raises(NotFoundError):
         await marketplace.submit_quote(
             business_id=business.id,
+            owner_user_id=owner.id,
             search_id=uuid.uuid4(),
             payload=QuoteCreateIn(price_mnt=100, condition=QuoteCondition.new),
         )
@@ -691,16 +707,19 @@ async def test_list_my_quotes_scopes_to_business(
 
     await marketplace.submit_quote(
         business_id=biz_a.id,
+        owner_user_id=owner_a.id,
         search_id=req1.id,
         payload=QuoteCreateIn(price_mnt=111, condition=QuoteCondition.new),
     )
     await marketplace.submit_quote(
         business_id=biz_b.id,
+        owner_user_id=owner_b.id,
         search_id=req1.id,
         payload=QuoteCreateIn(price_mnt=222, condition=QuoteCondition.used),
     )
     await marketplace.submit_quote(
         business_id=biz_a.id,
+        owner_user_id=owner_a.id,
         search_id=req2.id,
         payload=QuoteCreateIn(price_mnt=333, condition=QuoteCondition.imported),
     )
@@ -737,6 +756,7 @@ async def test_list_quotes_for_search_driver_view(
     )
     await marketplace.submit_quote(
         business_id=business.id,
+        owner_user_id=owner.id,
         search_id=request.id,
         payload=QuoteCreateIn(price_mnt=99, condition=QuoteCondition.used),
     )

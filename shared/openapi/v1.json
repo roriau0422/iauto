@@ -418,6 +418,181 @@
         "title": "LookupReportOut",
         "type": "object"
       },
+      "MediaAssetDownloadOut": {
+        "properties": {
+          "asset_id": {
+            "format": "uuid",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "download_url": {
+            "title": "Download Url",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset_id",
+          "download_url",
+          "expires_at"
+        ],
+        "title": "MediaAssetDownloadOut",
+        "type": "object"
+      },
+      "MediaAssetOut": {
+        "properties": {
+          "byte_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Byte Size"
+          },
+          "content_type": {
+            "title": "Content Type",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "owner_id": {
+            "format": "uuid",
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "purpose": {
+            "$ref": "#/components/schemas/MediaAssetPurpose"
+          },
+          "status": {
+            "$ref": "#/components/schemas/MediaAssetStatus"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "owner_id",
+          "purpose",
+          "status",
+          "content_type",
+          "byte_size",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "MediaAssetOut",
+        "type": "object"
+      },
+      "MediaAssetPurpose": {
+        "description": "What the asset is for. Drives object key prefix + access scopes.",
+        "enum": [
+          "part_search",
+          "quote",
+          "review"
+        ],
+        "title": "MediaAssetPurpose",
+        "type": "string"
+      },
+      "MediaAssetStatus": {
+        "description": "Lifecycle of a media asset row.\n\n- `pending` — row exists, presigned PUT issued, bytes not yet confirmed.\n- `active`  — confirmed via HEAD; safe to reference from domain rows.\n- `deleted` — soft-deleted; underlying object scheduled for removal.",
+        "enum": [
+          "pending",
+          "active",
+          "deleted"
+        ],
+        "title": "MediaAssetStatus",
+        "type": "string"
+      },
+      "MediaUploadCreateIn": {
+        "properties": {
+          "byte_size": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 10485760.0,
+            "title": "Byte Size",
+            "type": "integer"
+          },
+          "content_type": {
+            "enum": [
+              "image/jpeg",
+              "image/png",
+              "image/webp"
+            ],
+            "title": "Content Type",
+            "type": "string"
+          },
+          "purpose": {
+            "$ref": "#/components/schemas/MediaAssetPurpose"
+          }
+        },
+        "required": [
+          "purpose",
+          "content_type",
+          "byte_size"
+        ],
+        "title": "MediaUploadCreateIn",
+        "type": "object"
+      },
+      "MediaUploadCreateOut": {
+        "properties": {
+          "asset_id": {
+            "format": "uuid",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Headers",
+            "type": "object"
+          },
+          "max_bytes": {
+            "title": "Max Bytes",
+            "type": "integer"
+          },
+          "method": {
+            "const": "PUT",
+            "default": "PUT",
+            "title": "Method",
+            "type": "string"
+          },
+          "upload_url": {
+            "title": "Upload Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset_id",
+          "upload_url",
+          "headers",
+          "expires_at",
+          "max_bytes"
+        ],
+        "title": "MediaUploadCreateOut",
+        "type": "object"
+      },
       "OtpRequestIn": {
         "properties": {
           "phone": {
@@ -518,12 +693,13 @@
             "title": "Description",
             "type": "string"
           },
-          "media_urls": {
+          "media_asset_ids": {
             "items": {
+              "format": "uuid",
               "type": "string"
             },
             "maxItems": 4,
-            "title": "Media Urls",
+            "title": "Media Asset Ids",
             "type": "array"
           },
           "vehicle_id": {
@@ -581,11 +757,12 @@
             "title": "Id",
             "type": "string"
           },
-          "media_urls": {
+          "media_asset_ids": {
             "items": {
+              "format": "uuid",
               "type": "string"
             },
-            "title": "Media Urls",
+            "title": "Media Asset Ids",
             "type": "array"
           },
           "status": {
@@ -607,7 +784,7 @@
           "driver_id",
           "vehicle_id",
           "description",
-          "media_urls",
+          "media_asset_ids",
           "status",
           "created_at",
           "updated_at"
@@ -641,12 +818,13 @@
           "condition": {
             "$ref": "#/components/schemas/QuoteCondition"
           },
-          "media_urls": {
+          "media_asset_ids": {
             "items": {
+              "format": "uuid",
               "type": "string"
             },
             "maxItems": 4,
-            "title": "Media Urls",
+            "title": "Media Asset Ids",
             "type": "array"
           },
           "notes": {
@@ -711,11 +889,12 @@
             "title": "Id",
             "type": "string"
           },
-          "media_urls": {
+          "media_asset_ids": {
             "items": {
+              "format": "uuid",
               "type": "string"
             },
-            "title": "Media Urls",
+            "title": "Media Asset Ids",
             "type": "array"
           },
           "notes": {
@@ -756,7 +935,7 @@
           "price_mnt",
           "condition",
           "notes",
-          "media_urls",
+          "media_asset_ids",
           "created_at",
           "updated_at"
         ],
@@ -801,6 +980,328 @@
           "refresh_token"
         ],
         "title": "RefreshIn",
+        "type": "object"
+      },
+      "ReservationListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReservationOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "ReservationListOut",
+        "type": "object"
+      },
+      "ReservationOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "driver_id": {
+            "format": "uuid",
+            "title": "Driver Id",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "part_search_id": {
+            "format": "uuid",
+            "title": "Part Search Id",
+            "type": "string"
+          },
+          "quote_id": {
+            "format": "uuid",
+            "title": "Quote Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ReservationStatus"
+          },
+          "tenant_id": {
+            "format": "uuid",
+            "title": "Tenant Id",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenant_id",
+          "quote_id",
+          "part_search_id",
+          "driver_id",
+          "status",
+          "expires_at",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ReservationOut",
+        "type": "object"
+      },
+      "ReservationStatus": {
+        "description": "Lifecycle of a 24h hold a driver places on a quote.\n\n- `active`    — the hold is in force; another business cannot win this\n                search until it resolves.\n- `cancelled` — the driver explicitly walked away.\n- `expired`   — the 24h TTL elapsed without conversion (Arq cron).\n- `completed` — the business marked the part delivered → spawned a sale.",
+        "enum": [
+          "active",
+          "cancelled",
+          "expired",
+          "completed"
+        ],
+        "title": "ReservationStatus",
+        "type": "string"
+      },
+      "ReviewCreateIn": {
+        "description": "Caller's role implies `direction` — driver→business is buyer→seller,\nbusiness→driver is seller→buyer. The router resolves direction from the\nauthenticated principal so we can't be tricked by the wire payload.",
+        "properties": {
+          "body": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body"
+          },
+          "rating": {
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Rating",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "rating"
+        ],
+        "title": "ReviewCreateIn",
+        "type": "object"
+      },
+      "ReviewDirection": {
+        "description": "Who is reviewing whom on a sale.\n\n- `buyer_to_seller` — driver writes about the business. Public, shows\n                      on the business profile.\n- `seller_to_buyer` — business writes about the driver. Private,\n                      aggregated for moderation flags only.",
+        "enum": [
+          "buyer_to_seller",
+          "seller_to_buyer"
+        ],
+        "title": "ReviewDirection",
+        "type": "string"
+      },
+      "ReviewListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "ReviewListOut",
+        "type": "object"
+      },
+      "ReviewOut": {
+        "properties": {
+          "author_user_id": {
+            "format": "uuid",
+            "title": "Author User Id",
+            "type": "string"
+          },
+          "body": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "direction": {
+            "$ref": "#/components/schemas/ReviewDirection"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_public": {
+            "title": "Is Public",
+            "type": "boolean"
+          },
+          "rating": {
+            "title": "Rating",
+            "type": "integer"
+          },
+          "sale_id": {
+            "format": "uuid",
+            "title": "Sale Id",
+            "type": "string"
+          },
+          "subject_business_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Business Id"
+          },
+          "subject_user_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject User Id"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "sale_id",
+          "direction",
+          "author_user_id",
+          "subject_business_id",
+          "subject_user_id",
+          "rating",
+          "body",
+          "is_public",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ReviewOut",
+        "type": "object"
+      },
+      "SaleListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SaleOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "SaleListOut",
+        "type": "object"
+      },
+      "SaleOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "driver_id": {
+            "format": "uuid",
+            "title": "Driver Id",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "part_search_id": {
+            "format": "uuid",
+            "title": "Part Search Id",
+            "type": "string"
+          },
+          "price_mnt": {
+            "title": "Price Mnt",
+            "type": "integer"
+          },
+          "quote_id": {
+            "format": "uuid",
+            "title": "Quote Id",
+            "type": "string"
+          },
+          "reservation_id": {
+            "format": "uuid",
+            "title": "Reservation Id",
+            "type": "string"
+          },
+          "tenant_id": {
+            "format": "uuid",
+            "title": "Tenant Id",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenant_id",
+          "reservation_id",
+          "quote_id",
+          "part_search_id",
+          "driver_id",
+          "price_mnt",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SaleOut",
         "type": "object"
       },
       "SteeringSide": {
@@ -2302,6 +2803,673 @@
         ]
       }
     },
+    "/v1/marketplace/quotes/{quote_id}/reserve": {
+      "post": {
+        "operationId": "reserve_quote_v1_marketplace_quotes__quote_id__reserve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "quote_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Quote Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReservationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Driver places a 24-hour hold on a quote",
+        "tags": [
+          "marketplace"
+        ]
+      }
+    },
+    "/v1/marketplace/reservations/incoming": {
+      "get": {
+        "operationId": "list_incoming_reservations_v1_marketplace_reservations_incoming_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "default": "all",
+              "enum": [
+                "active",
+                "cancelled",
+                "expired",
+                "completed",
+                "all"
+              ],
+              "title": "Status",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReservationListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Business's incoming reservations, newest first",
+        "tags": [
+          "marketplace"
+        ]
+      }
+    },
+    "/v1/marketplace/reservations/mine": {
+      "get": {
+        "operationId": "list_my_reservations_v1_marketplace_reservations_mine_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReservationListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Driver's own reservations, newest first",
+        "tags": [
+          "marketplace"
+        ]
+      }
+    },
+    "/v1/marketplace/reservations/{reservation_id}/cancel": {
+      "post": {
+        "operationId": "cancel_reservation_v1_marketplace_reservations__reservation_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "reservation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Reservation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReservationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Driver cancels their active reservation",
+        "tags": [
+          "marketplace"
+        ]
+      }
+    },
+    "/v1/marketplace/reservations/{reservation_id}/complete": {
+      "post": {
+        "operationId": "complete_reservation_v1_marketplace_reservations__reservation_id__complete_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "reservation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Reservation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Business marks a reservation delivered → creates a sale",
+        "tags": [
+          "marketplace"
+        ]
+      }
+    },
+    "/v1/marketplace/sales/mine": {
+      "get": {
+        "operationId": "list_my_sales_v1_marketplace_sales_mine_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaleListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Driver's own purchases, newest first",
+        "tags": [
+          "marketplace"
+        ]
+      }
+    },
+    "/v1/marketplace/sales/outgoing": {
+      "get": {
+        "operationId": "list_outgoing_sales_v1_marketplace_sales_outgoing_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaleListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Business's sold items, newest first",
+        "tags": [
+          "marketplace"
+        ]
+      }
+    },
+    "/v1/marketplace/sales/{sale_id}": {
+      "get": {
+        "operationId": "get_sale_v1_marketplace_sales__sale_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sale_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Sale Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Either party (driver or business) reads the sale",
+        "tags": [
+          "marketplace"
+        ]
+      }
+    },
+    "/v1/marketplace/sales/{sale_id}/reviews": {
+      "get": {
+        "operationId": "list_sale_reviews_v1_marketplace_sales__sale_id__reviews_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sale_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Sale Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List both reviews on a sale (caller must be a party)",
+        "tags": [
+          "marketplace"
+        ]
+      },
+      "post": {
+        "operationId": "create_review_v1_marketplace_sales__sale_id__reviews_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sale_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Sale Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewCreateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Driver or business writes their review on a sale",
+        "tags": [
+          "marketplace"
+        ]
+      }
+    },
     "/v1/marketplace/searches": {
       "post": {
         "operationId": "create_search_v1_marketplace_searches_post",
@@ -2835,6 +4003,183 @@
         "summary": "Return the currently authenticated user",
         "tags": [
           "identity"
+        ]
+      }
+    },
+    "/v1/media/assets/{asset_id}": {
+      "get": {
+        "operationId": "get_asset_download_v1_media_assets__asset_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "asset_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Asset Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaAssetDownloadOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Issue a presigned GET URL for an asset (owner only)",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/v1/media/uploads": {
+      "post": {
+        "operationId": "create_upload_v1_media_uploads_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaUploadCreateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaUploadCreateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request a presigned PUT URL for a new asset",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/v1/media/uploads/{asset_id}/confirm": {
+      "post": {
+        "operationId": "confirm_upload_v1_media_uploads__asset_id__confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "asset_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Asset Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaAssetOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm an upload — backend HEADs the object and flips status to active",
+        "tags": [
+          "media"
         ]
       }
     },
