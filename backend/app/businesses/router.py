@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 
 from app.businesses.dependencies import (
     BusinessContext,
@@ -15,6 +15,9 @@ from app.businesses.dependencies import (
 )
 from app.businesses.models import Business, BusinessMemberRole
 from app.businesses.schemas import (
+    AnalyticsDailyOut,
+    AnalyticsTopSkuOut,
+    BusinessAnalyticsOut,
     BusinessCreateIn,
     BusinessMemberAddIn,
     BusinessMemberDeleteOut,
@@ -26,7 +29,7 @@ from app.businesses.schemas import (
     VehicleBrandCoverageOut,
     VehicleBrandCoverageReplaceIn,
 )
-from app.businesses.service import BusinessesService
+from app.businesses.service import ANALYTICS_MAX_WINDOW_DAYS, BusinessesService
 from app.identity.dependencies import get_current_user
 from app.identity.models import User
 
@@ -156,3 +159,43 @@ async def remove_member(
 ) -> BusinessMemberDeleteOut:
     await service.remove_member(business=ctx.business, actor_role=ctx.role, user_id=user_id)
     return BusinessMemberDeleteOut()
+
+
+# ---------------------------------------------------------------------------
+# Sales analytics (session 25)
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/businesses/me/analytics",
+    response_model=BusinessAnalyticsOut,
+    summary="Trailing-window sales KPIs for the caller's business",
+)
+async def get_analytics(
+    service: Annotated[BusinessesService, Depends(get_businesses_service)],
+    business: Annotated[Business, Depends(get_current_business)],
+    window_days: Annotated[int, Query(ge=1, le=ANALYTICS_MAX_WINDOW_DAYS)] = 7,
+) -> BusinessAnalyticsOut:
+    result = await service.get_sales_analytics(business=business, window_days=window_days)
+    return BusinessAnalyticsOut(
+        window_days=result.window_days,
+        daily=[
+            AnalyticsDailyOut(
+                date=row.date,
+                sales_count=row.sales_count,
+                revenue_mnt=row.revenue_mnt,
+            )
+            for row in result.daily
+        ],
+        total_sales=result.total_sales,
+        total_revenue_mnt=result.total_revenue_mnt,
+        top_skus=[
+            AnalyticsTopSkuOut(
+                sku_id=row.sku_id,
+                sku_code=row.sku_code,
+                display_name=row.display_name,
+                units_sold=row.units_sold,
+            )
+            for row in result.top_skus
+        ],
+    )

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import uuid
+from dataclasses import dataclass
+from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,6 +16,7 @@ from app.businesses.models import (
     BusinessVehicleBrand,
 )
 from app.businesses.repository import (
+    BusinessAnalyticsRepository,
     BusinessMemberRepository,
     BusinessRepository,
     BusinessVehicleBrandRepository,
@@ -29,6 +32,41 @@ from app.identity.repository import UserRepository
 from app.platform.errors import ConflictError, ForbiddenError, NotFoundError, ValidationError
 from app.platform.logging import get_logger
 
+# Top-N leaderboard for the analytics endpoint. The number is fixed for
+# the launch — businesses get five SKUs, mobile renders five rows.
+_TOP_SKUS_LIMIT = 5
+
+# Hard ceiling on `window_days`. The caller's Pydantic validation should
+# reject larger values, but the service re-asserts the bound so a
+# repository call with stale settings can't silently scan a full year of
+# rows.
+ANALYTICS_MAX_WINDOW_DAYS = 90
+
+
+@dataclass(slots=True)
+class DailyBucket:
+    date: date
+    sales_count: int
+    revenue_mnt: int
+
+
+@dataclass(slots=True)
+class TopSkuRow:
+    sku_id: uuid.UUID
+    sku_code: str
+    display_name: str
+    units_sold: int
+
+
+@dataclass(slots=True)
+class AnalyticsResult:
+    window_days: int
+    daily: list[DailyBucket]
+    total_sales: int
+    total_revenue_mnt: int
+    top_skus: list[TopSkuRow]
+
+
 logger = get_logger("app.businesses.service")
 
 
@@ -39,6 +77,7 @@ class BusinessesService:
         self.coverage = BusinessVehicleBrandRepository(session)
         self.members = BusinessMemberRepository(session)
         self.users = UserRepository(session)
+        self.analytics = BusinessAnalyticsRepository(session)
 
     async def create(self, *, owner: User, payload: BusinessCreateIn) -> Business:
         if owner.role != UserRole.business:
@@ -198,3 +237,66 @@ class BusinessesService:
         self, *, business_id: uuid.UUID, user_id: uuid.UUID
     ) -> BusinessMember | None:
         return await self.members.get(business_id, user_id)
+
+    # ---- analytics --------------------------------------------------------
+
+    async def get_sales_analytics(
+        self,
+        *,
+        business: Business,
+        window_days: int,
+    ) -> AnalyticsResult:
+        """Trailing-window sales analytics for a single business tenant.
+
+        - `daily` is gap-filled to `window_days` consecutive UTC days,
+          oldest first.
+        - `total_sales` and `total_revenue_mnt` are over the same window.
+        - `top_skus` is the top-5 SKUs by units sold during the window
+          (joined through `warehouse_stock_movements`).
+
+        Window is clamped at ANALYTICS_MAX_WINDOW_DAYS as a defence in
+        depth — the route schema also rejects larger inputs.
+        """
+        if window_days < 1 or window_days > ANALYTICS_MAX_WINDOW_DAYS:
+            raise ValidationError(f"window_days must be between 1 and {ANALYTICS_MAX_WINDOW_DAYS}")
+
+        now = datetime.now(UTC)
+        # Anchor the window at midnight UTC `window_days` days ago, so a
+        # 7-day window covers exactly 7 calendar days regardless of when
+        # the request lands.
+        today = now.date()
+        first_day = today - timedelta(days=window_days - 1)
+        cutoff = datetime.combine(first_day, datetime.min.time(), tzinfo=UTC)
+
+        sparse = await self.analytics.daily_buckets(tenant_id=business.id, cutoff=cutoff)
+        sparse_by_day = {row[0]: (row[1], row[2]) for row in sparse}
+        daily: list[DailyBucket] = []
+        for offset in range(window_days):
+            day = first_day + timedelta(days=offset)
+            sales_count, revenue_mnt = sparse_by_day.get(day, (0, 0))
+            daily.append(DailyBucket(date=day, sales_count=sales_count, revenue_mnt=revenue_mnt))
+
+        total_sales, total_revenue_mnt = await self.analytics.totals(
+            tenant_id=business.id, cutoff=cutoff
+        )
+
+        top_rows = await self.analytics.top_skus(
+            tenant_id=business.id, cutoff=cutoff, limit=_TOP_SKUS_LIMIT
+        )
+        top_skus = [
+            TopSkuRow(
+                sku_id=row[0],
+                sku_code=row[1],
+                display_name=row[2],
+                units_sold=row[3],
+            )
+            for row in top_rows
+        ]
+
+        return AnalyticsResult(
+            window_days=window_days,
+            daily=daily,
+            total_sales=total_sales,
+            total_revenue_mnt=total_revenue_mnt,
+            top_skus=top_skus,
+        )

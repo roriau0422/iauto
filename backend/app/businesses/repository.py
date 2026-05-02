@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import uuid
+from datetime import date, datetime
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.businesses.models import (
@@ -14,7 +15,9 @@ from app.businesses.models import (
     BusinessVehicleBrand,
 )
 from app.catalog.models import VehicleBrand
+from app.marketplace.models import Sale
 from app.vehicles.models import SteeringSide
+from app.warehouse.models import WarehouseSku, WarehouseStockMovement
 
 
 class BusinessRepository:
@@ -171,3 +174,98 @@ class BusinessMemberRepository:
         await self.session.flush()
         rowcount = raw.rowcount if isinstance(raw, CursorResult) else 0
         return rowcount or 0
+
+
+class BusinessAnalyticsRepository:
+    """Read-only sales aggregations for a business's home dashboard.
+
+    All methods take `tenant_id` (= `business.id`) as a required
+    argument so the tenant-isolation lint stays honest. The window is
+    computed by the caller — this repo blindly applies whatever cutoff
+    it's handed.
+    """
+
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    async def daily_buckets(
+        self,
+        *,
+        tenant_id: uuid.UUID,
+        cutoff: datetime,
+    ) -> list[tuple[date, int, int]]:
+        """Daily `(date, sales_count, revenue_mnt)` buckets, ascending by date.
+
+        Sparse — days with zero sales are NOT emitted here. The service
+        layer fills the gaps so the mobile chart renders contiguous bars.
+        """
+        bucket_expr = func.date_trunc("day", Sale.created_at)
+        stmt = (
+            select(
+                bucket_expr.label("bucket"),
+                func.count(Sale.id),
+                func.coalesce(func.sum(Sale.price_mnt), 0),
+            )
+            .where(Sale.tenant_id == tenant_id, Sale.created_at >= cutoff)
+            .group_by(bucket_expr)
+            .order_by(bucket_expr)
+        )
+        rows = (await self.session.execute(stmt)).all()
+        return [(row[0].date(), int(row[1]), int(row[2])) for row in rows]
+
+    async def totals(
+        self,
+        *,
+        tenant_id: uuid.UUID,
+        cutoff: datetime,
+    ) -> tuple[int, int]:
+        """Total `(sales_count, revenue_mnt)` for the window."""
+        stmt = select(
+            func.count(Sale.id),
+            func.coalesce(func.sum(Sale.price_mnt), 0),
+        ).where(Sale.tenant_id == tenant_id, Sale.created_at >= cutoff)
+        row = (await self.session.execute(stmt)).one()
+        return int(row[0]), int(row[1])
+
+    async def top_skus(
+        self,
+        *,
+        tenant_id: uuid.UUID,
+        cutoff: datetime,
+        limit: int,
+    ) -> list[tuple[uuid.UUID, str, str, int]]:
+        """Top-N SKUs by units sold during the window.
+
+        A "sale" links to its SKU through `warehouse_stock_movements`
+        (one row per SKU dispensed for that sale, all with negative
+        `signed_quantity`). We take the absolute value so the leaderboard
+        sums are positive, and we exclude rows where the sku FK was set
+        null by an earlier SKU delete (audit-preserving SET NULL ondelete
+        from session 10).
+        """
+        signed = WarehouseStockMovement.signed_quantity
+        stmt = (
+            select(
+                WarehouseSku.id,
+                WarehouseSku.sku_code,
+                WarehouseSku.display_name,
+                func.coalesce(func.sum(-signed), 0).label("units_sold"),
+            )
+            .join(
+                WarehouseStockMovement,
+                WarehouseStockMovement.sku_id == WarehouseSku.id,
+            )
+            .join(Sale, Sale.id == WarehouseStockMovement.sale_id)
+            .where(
+                Sale.tenant_id == tenant_id,
+                Sale.created_at >= cutoff,
+                WarehouseStockMovement.tenant_id == tenant_id,
+                WarehouseStockMovement.sku_id.is_not(None),
+                signed < 0,
+            )
+            .group_by(WarehouseSku.id, WarehouseSku.sku_code, WarehouseSku.display_name)
+            .order_by(func.sum(-signed).desc())
+            .limit(limit)
+        )
+        rows = (await self.session.execute(stmt)).all()
+        return [(row[0], row[1], row[2], int(row[3])) for row in rows]

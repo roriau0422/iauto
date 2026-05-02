@@ -40,6 +40,61 @@
         "title": "AiSessionStatus",
         "type": "string"
       },
+      "AnalyticsDailyOut": {
+        "description": "One bucket in the trailing-window sales sparkline.\n\n`date` is the UTC calendar date the bucket covers (server-side\n`date_trunc('day', sales.created_at)`). Days inside the window with\nzero sales are still emitted so the mobile chart renders contiguous\nbars without client-side gap-filling.",
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "revenue_mnt": {
+            "title": "Revenue Mnt",
+            "type": "integer"
+          },
+          "sales_count": {
+            "title": "Sales Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "sales_count",
+          "revenue_mnt"
+        ],
+        "title": "AnalyticsDailyOut",
+        "type": "object"
+      },
+      "AnalyticsTopSkuOut": {
+        "description": "One row in the top-N SKUs leaderboard.",
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "sku_code": {
+            "title": "Sku Code",
+            "type": "string"
+          },
+          "sku_id": {
+            "format": "uuid",
+            "title": "Sku Id",
+            "type": "string"
+          },
+          "units_sold": {
+            "title": "Units Sold",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sku_id",
+          "sku_code",
+          "display_name",
+          "units_sold"
+        ],
+        "title": "AnalyticsTopSkuOut",
+        "type": "object"
+      },
       "AssistantReplyOut": {
         "description": "Wraps the assistant's reply + spend telemetry for the caller.",
         "properties": {
@@ -70,6 +125,45 @@
           "est_cost_micro_mnt"
         ],
         "title": "AssistantReplyOut",
+        "type": "object"
+      },
+      "BusinessAnalyticsOut": {
+        "properties": {
+          "daily": {
+            "items": {
+              "$ref": "#/components/schemas/AnalyticsDailyOut"
+            },
+            "title": "Daily",
+            "type": "array"
+          },
+          "top_skus": {
+            "items": {
+              "$ref": "#/components/schemas/AnalyticsTopSkuOut"
+            },
+            "title": "Top Skus",
+            "type": "array"
+          },
+          "total_revenue_mnt": {
+            "title": "Total Revenue Mnt",
+            "type": "integer"
+          },
+          "total_sales": {
+            "title": "Total Sales",
+            "type": "integer"
+          },
+          "window_days": {
+            "title": "Window Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "window_days",
+          "daily",
+          "total_sales",
+          "total_revenue_mnt",
+          "top_skus"
+        ],
+        "title": "BusinessAnalyticsOut",
         "type": "object"
       },
       "BusinessCreateIn": {
@@ -7166,6 +7260,67 @@
           }
         },
         "summary": "Partially update the authenticated owner's business profile",
+        "tags": [
+          "businesses"
+        ]
+      }
+    },
+    "/v1/businesses/me/analytics": {
+      "get": {
+        "operationId": "get_analytics_v1_businesses_me_analytics_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "window_days",
+            "required": false,
+            "schema": {
+              "default": 7,
+              "maximum": 90,
+              "minimum": 1,
+              "title": "Window Days",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BusinessAnalyticsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Trailing-window sales KPIs for the caller's business",
         "tags": [
           "businesses"
         ]

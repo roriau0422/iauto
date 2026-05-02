@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal, NamedTuple, Self
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -200,6 +200,42 @@ class BusinessMemberAddIn(BaseModel):
 
 class BusinessMemberDeleteOut(BaseModel):
     ok: Literal[True] = True
+
+
+# ---------------------------------------------------------------------------
+# Sales analytics (session 25)
+# ---------------------------------------------------------------------------
+
+
+class AnalyticsDailyOut(BaseModel):
+    """One bucket in the trailing-window sales sparkline.
+
+    `date` is the UTC calendar date the bucket covers (server-side
+    `date_trunc('day', sales.created_at)`). Days inside the window with
+    zero sales are still emitted so the mobile chart renders contiguous
+    bars without client-side gap-filling.
+    """
+
+    date: date
+    sales_count: int
+    revenue_mnt: int
+
+
+class AnalyticsTopSkuOut(BaseModel):
+    """One row in the top-N SKUs leaderboard."""
+
+    sku_id: uuid.UUID
+    sku_code: str
+    display_name: str
+    units_sold: int
+
+
+class BusinessAnalyticsOut(BaseModel):
+    window_days: int
+    daily: list[AnalyticsDailyOut]
+    total_sales: int
+    total_revenue_mnt: int
+    top_skus: list[AnalyticsTopSkuOut]
 
 
 class CoverageFilter(NamedTuple):
