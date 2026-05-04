@@ -22,6 +22,16 @@ from typing import Any, Protocol
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+# `RunContextWrapper` must be available in the module globals — the
+# `@function_tool` decorator resolves type hints via `typing.get_type_hints`,
+# which looks them up in the function's `__globals__` (= this module),
+# not the local namespace inside `build_live_runner`. Importing here also
+# avoids a NameError at agent construction time on Python 3.13.
+try:
+    from agents import RunContextWrapper
+except ImportError:  # pragma: no cover - tests stub the live runner
+    RunContextWrapper = None  # type: ignore[assignment, misc]
+
 from app.ai_mechanic.embeddings import EmbeddingClient, content_hash
 from app.ai_mechanic.repository import AiEmbeddingCacheRepository, AiKbRepository
 from app.marketplace.models import QuoteCondition
@@ -234,7 +244,7 @@ def build_live_runner(*, settings: Settings) -> AgentRunner:
     """
     # Agents SDK is heavy at import — load only when the live runner is
     # actually wired up.
-    from agents import Agent, RunContextWrapper, Runner, function_tool
+    from agents import Agent, Runner, function_tool
     from agents.extensions.models.litellm_model import LitellmModel
 
     @function_tool

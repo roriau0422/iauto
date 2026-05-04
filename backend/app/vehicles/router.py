@@ -125,6 +125,20 @@ async def list_vehicles(
     return VehicleListOut(items=[VehicleOut.model_validate(r) for r in rows])
 
 
+@router.get(
+    "/vehicles/{vehicle_id}",
+    response_model=VehicleOut,
+    summary="Fetch a single vehicle the user owns",
+)
+async def get_vehicle(
+    vehicle_id: uuid.UUID,
+    service: Annotated[VehiclesService, Depends(get_vehicles_service)],
+    user: Annotated[User, Depends(get_current_user)],
+) -> VehicleOut:
+    vehicle = await service.check_ownership(user_id=user.id, vehicle_id=vehicle_id)
+    return VehicleOut.model_validate(vehicle)
+
+
 @router.delete(
     "/vehicles/{vehicle_id}",
     response_model=VehicleDeleteOut,

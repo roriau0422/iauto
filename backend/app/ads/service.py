@@ -146,6 +146,7 @@ class AdsService:
             self.session,
             AdCampaignActivated(aggregate_id=campaign.id, tenant_id=campaign.tenant_id),
         )
+        await self.session.refresh(campaign)
         return campaign
 
     async def activate_for_payment_intent(
@@ -204,6 +205,7 @@ class AdsService:
             raise ConflictError(f"Cannot pause a campaign in status '{campaign.status.value}'")
         campaign.status = AdCampaignStatus.paused
         await self.session.flush()
+        await self.session.refresh(campaign)
         return campaign
 
     async def resume(
@@ -222,6 +224,7 @@ class AdsService:
             raise ConflictError("Campaign budget is already exhausted")
         campaign.status = AdCampaignStatus.active
         await self.session.flush()
+        await self.session.refresh(campaign)
         return campaign
 
     # ---- tracking ------------------------------------------------------

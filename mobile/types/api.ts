@@ -1241,7 +1241,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Fetch a single vehicle the user owns */
+        get: operations["get_vehicle_v1_vehicles__vehicle_id__get"];
         put?: never;
         post?: never;
         /** Unregister a vehicle (owner-only, leaves the vehicle row intact) */
@@ -6682,6 +6683,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LookupReportOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_vehicle_v1_vehicles__vehicle_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                vehicle_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleOut"];
                 };
             };
             /** @description Validation Error */

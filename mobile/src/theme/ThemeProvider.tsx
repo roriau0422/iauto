@@ -6,9 +6,10 @@
  * app restart. Tweaks live in a separate key from auth tokens.
  */
 
-import * as SecureStore from 'expo-secure-store';
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useColorScheme } from 'react-native';
+
+import { getItem, setItem } from '../lib/secureKv';
 
 import {
   type AccentKey,
@@ -49,7 +50,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   // Hydrate persisted tweaks on mount.
   useEffect(() => {
-    SecureStore.getItemAsync(TWEAKS_KEY)
+    getItem(TWEAKS_KEY)
       .then((raw) => {
         if (!raw) return;
         try {
@@ -74,7 +75,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const setTweak: Ctx['setTweak'] = (k, v) => {
     setTweaks((cur) => {
       const next = { ...cur, [k]: v };
-      SecureStore.setItemAsync(TWEAKS_KEY, JSON.stringify(next)).catch(() => undefined);
+      setItem(TWEAKS_KEY, JSON.stringify(next)).catch(() => undefined);
       return next;
     });
   };

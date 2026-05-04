@@ -132,6 +132,10 @@ class BusinessesService:
         if "contact_phone" in data:
             business.contact_phone = data["contact_phone"]
         await self.session.flush()
+        # Onupdate-driven `updated_at` is expired by flush; refresh so the
+        # response model can read it without a lazy load on a closed
+        # greenlet (same class of bug as warehouse.update_sku).
+        await self.session.refresh(business)
         logger.info("business_updated", business_id=str(business.id))
         return business
 

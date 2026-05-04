@@ -72,7 +72,8 @@
     },
     "extra": {
       "apiBaseUrl": "http://10.0.2.2:8000",
-      "apiBaseUrlIos": "http://localhost:8000"
+      "apiBaseUrlIos": "http://localhost:8000",
+      "apiBaseUrlWeb": "http://localhost:8000"
     }
   }
 }

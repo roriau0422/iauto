@@ -41,9 +41,7 @@ def build_spec() -> dict[str, object]:
 def render(spec: dict[str, object]) -> str:
     # Stable, deterministic output: keys sorted, ensure_ascii=False for
     # Cyrillic passthrough, trailing newline so git doesn't complain.
-    return (
-        json.dumps(spec, indent=2, ensure_ascii=False, sort_keys=True) + "\n"
-    )
+    return json.dumps(spec, indent=2, ensure_ascii=False, sort_keys=True) + "\n"
 
 
 def main() -> int:

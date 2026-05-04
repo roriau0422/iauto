@@ -70,14 +70,15 @@ export default function OtpEntry() {
         Утасны дугаараа{'\n'}оруулна уу
       </Text>
       <Text variant="caption" tone="tertiary" style={{ marginTop: 6 }}>
-        Бид 4 оронтой код илгээх болно
+        Бид 6 оронтой код илгээх болно
       </Text>
 
-      <Glass radius="lg" style={{ marginTop: 24, paddingVertical: 6 }}>
+      <Glass radius="lg" style={{ marginTop: 24 }}>
         <View style={styles.row}>
-          <Text variant="num" tone="tertiary" style={{ fontSize: 16 }}>
+          <Text variant="num" tone="tertiary" style={styles.prefix}>
             +976
           </Text>
+          <View style={[styles.divider, { backgroundColor: theme.colors.stroke }]} />
           <TextInput
             value={phone}
             onChangeText={setPhone}
@@ -109,12 +110,22 @@ export default function OtpEntry() {
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 8 },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    gap: 14,
+  },
+  prefix: { fontSize: 16, fontWeight: '600' },
+  divider: { width: 1, alignSelf: 'stretch', opacity: 0.6 },
   input: {
     flex: 1,
     fontSize: 20,
     letterSpacing: 1.5,
-    paddingVertical: 6,
     fontWeight: '600',
+    paddingVertical: 0,
+    margin: 0,
+    minHeight: 28,
   },
 });

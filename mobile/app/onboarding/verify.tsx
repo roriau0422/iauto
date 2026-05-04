@@ -1,11 +1,14 @@
 /**
- * Onboarding step 3b — 4-digit OTP entry. Hits POST /v1/auth/otp/verify.
+ * Onboarding step 3b — 6-digit OTP entry. Hits POST /v1/auth/otp/verify.
  *
- * On success we set the session in `useAuth`, then push to /plate so
- * the user can register their first car. The auth-aware redirect in
- * the root layout will eventually take over and route to the role's
- * tab tree once we exit the onboarding stack.
+ * Length comes from `Settings.otp_length` (currently 6). On success we
+ * set the session in `useAuth`, then push to /plate so the user can
+ * register their first car. The auth-aware redirect in the root layout
+ * eventually takes over and routes to the role's tab tree once we exit
+ * the onboarding stack.
  */
+
+const CODE_LENGTH = 6;
 
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -46,16 +49,16 @@ export default function OtpVerify() {
     return () => clearTimeout(t);
   }, []);
 
-  // Auto-submit when 4 digits arrive.
+  // Auto-submit when the full code arrives.
   useEffect(() => {
-    if (code.length === 4 && !submitting) {
+    if (code.length === CODE_LENGTH && !submitting) {
       void onVerify();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code]);
 
   const onVerify = async () => {
-    if (code.length !== 4 || !params.phone) return;
+    if (code.length !== CODE_LENGTH || !params.phone) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -88,7 +91,7 @@ export default function OtpVerify() {
     }
   };
 
-  const cells = [0, 1, 2, 3].map((i) => code[i] ?? '');
+  const cells = Array.from({ length: CODE_LENGTH }, (_, i) => code[i] ?? '');
 
   return (
     <Screen scroll contentStyle={{ paddingHorizontal: 24 }}>
@@ -104,10 +107,10 @@ export default function OtpVerify() {
         Баталгаажуулах{'\n'}код илгээгдлээ
       </Text>
       <Text variant="caption" tone="tertiary" style={{ marginTop: 6 }}>
-        +976 {params.phone ? formatTail(params.phone) : ''} руу 4 оронтой код илгээсэн
+        +976 {params.phone ? formatTail(params.phone) : ''} руу {CODE_LENGTH} оронтой код илгээсэн
       </Text>
 
-      <View style={{ flexDirection: 'row', gap: 10, marginTop: 28 }} onTouchEnd={() => inputRef.current?.focus()}>
+      <View style={{ flexDirection: 'row', gap: 8, marginTop: 28 }} onTouchEnd={() => inputRef.current?.focus()}>
         {cells.map((c, i) => {
           const isActive = i === code.length;
           return (
@@ -121,7 +124,7 @@ export default function OtpVerify() {
                   : null,
               ]}
             >
-              <Text variant="num" weight="700" style={{ fontSize: 24 }}>
+              <Text variant="num" weight="700" style={{ fontSize: 22 }}>
                 {c}
               </Text>
             </Glass>
@@ -132,7 +135,7 @@ export default function OtpVerify() {
       <TextInput
         ref={inputRef}
         value={code}
-        onChangeText={(v) => setCode(v.replace(/\D/g, '').slice(0, 4))}
+        onChangeText={(v) => setCode(v.replace(/\D/g, '').slice(0, CODE_LENGTH))}
         keyboardType="number-pad"
         textContentType={Platform.OS === 'ios' ? 'oneTimeCode' : 'none'}
         autoComplete="one-time-code"
@@ -156,7 +159,7 @@ export default function OtpVerify() {
         size="lg"
         label={submitting ? 'Шалгаж байна…' : 'Үргэлжлүүлэх'}
         onPress={onVerify}
-        disabled={submitting || code.length !== 4}
+        disabled={submitting || code.length !== CODE_LENGTH}
         loading={submitting}
         style={{ marginTop: 28 }}
       />
@@ -175,7 +178,7 @@ function formatTail(p: string): string {
 const styles = StyleSheet.create({
   cell: {
     flex: 1,
-    minHeight: 60,
+    minHeight: 56,
     alignItems: 'center',
     justifyContent: 'center',
   },

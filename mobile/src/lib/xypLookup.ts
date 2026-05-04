@@ -29,24 +29,33 @@ const NOT_FOUND_TOKEN = 'олдсонгүй';
 /**
  * Render the plan template into a concrete URL/body using `slots`.
  *
- * The plan exposes `body_template` with placeholders like `"{plate}"`
- * and a `slots` map describing which slot each placeholder maps to. We
- * keep the substitution dumb on purpose — string-replace each `{slot}`
- * token in the template with the caller-supplied value.
+ * The plan exposes `body_template` with mustache-style placeholders like
+ * `"{{plate}}"` (see migration 0003 — the smartcar.mn body nests
+ * `{"customFields": {"plateNumber": "{{plate}}"}}`). The renderer must
+ * recurse into nested objects and arrays, otherwise the placeholder
+ * ships verbatim and smartcar returns "{{PLATE}} ... олдсонгүй".
  */
-function renderTemplate(
-  template: { [key: string]: unknown },
-  slots: { [key: string]: string },
-): { [key: string]: unknown } {
-  const out: { [key: string]: unknown } = {};
-  for (const [k, v] of Object.entries(template)) {
-    out[k] = typeof v === 'string' ? substitute(v, slots) : v;
+function renderTemplate<T>(template: T, slots: { [key: string]: string }): T {
+  if (typeof template === 'string') {
+    return substitute(template, slots) as unknown as T;
   }
-  return out;
+  if (Array.isArray(template)) {
+    return template.map((v) => renderTemplate(v, slots)) as unknown as T;
+  }
+  if (template !== null && typeof template === 'object') {
+    const out: { [key: string]: unknown } = {};
+    for (const [k, v] of Object.entries(template as Record<string, unknown>)) {
+      out[k] = renderTemplate(v, slots);
+    }
+    return out as unknown as T;
+  }
+  return template;
 }
 
 function substitute(s: string, slots: { [key: string]: string }): string {
-  return s.replace(/\{([^}]+)\}/g, (_, key: string) => slots[key] ?? '');
+  // Mustache `{{slot}}` is the plan's convention. Single-brace would
+  // collide with JSON syntax inside string values.
+  return s.replace(/\{\{\s*([^}\s]+)\s*\}\}/g, (_, key: string) => slots[key] ?? '');
 }
 
 export async function runXypLookup(plate: string): Promise<XypLookupOutcome> {

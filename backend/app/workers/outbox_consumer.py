@@ -274,6 +274,9 @@ class WorkerSettings:
         ),
     ]
 
-    @property
-    def redis_settings(self) -> RedisSettings:
-        return RedisSettings.from_dsn(get_settings().redis_url_str)
+    # Arq looks up `redis_settings` as a class attribute (not via an
+    # instance), so a `@property` here yields the descriptor object —
+    # crashing with `AttributeError: 'property' object has no attribute
+    # 'host'` inside `arq.connections.create_pool`. Resolve the DSN at
+    # module load instead.
+    redis_settings: ClassVar[RedisSettings] = RedisSettings.from_dsn(get_settings().redis_url_str)

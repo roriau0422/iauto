@@ -151,6 +151,10 @@ class WarehouseService:
         for key, value in data.items():
             setattr(sku, key, value)
         await self.session.flush()
+        # `updated_at` carries `onupdate=func.now()` server-side, so flush
+        # leaves it expired. Refresh attributes the response model touches
+        # so Pydantic doesn't trigger a lazy load on a closed greenlet.
+        await self.session.refresh(sku)
         return sku
 
     async def delete_sku(

@@ -41,7 +41,7 @@ export async function registerVehicle(body: VehicleRegisterIn): Promise<VehicleR
 }
 
 export async function listMyVehicles(): Promise<VehicleListOut> {
-  const r = await apiClient.get<VehicleListOut>('/v1/vehicles/me');
+  const r = await apiClient.get<VehicleListOut>('/v1/vehicles');
   return r.data;
 }
 
