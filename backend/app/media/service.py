@@ -133,6 +133,11 @@ class MediaService:
         asset.byte_size = size
         asset.status = MediaAssetStatus.active
         await self.session.flush()
+        # `updated_at` carries `onupdate=func.now()`, so flush expires it.
+        # Refresh before returning so Pydantic's response-model serialization
+        # doesn't trigger a lazy load on a closed greenlet (same class of
+        # bug as warehouse.update_sku / businesses.update / ads.pause).
+        await self.session.refresh(asset)
         logger.info(
             "media_upload_confirmed",
             asset_id=str(asset.id),

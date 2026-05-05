@@ -99,7 +99,7 @@ Implemented contexts (alphabetical) — phases 1–5 complete:
 - `app/notifications/` — push notifications via outbox subscribers (FCM + APNs)
 - `app/payments/` — QPay v2 invoices + double-entry ledger
 - `app/platform/` — config, db, cache, crypto, outbox, events, logging, errors, middleware, observability (Sentry + Prometheus + OTel), auth rate-limit, models registry
-- `app/story/` — iAuto Story feed (posts, likes, comments)
+- `app/story/` — UCar Story feed (posts, likes, comments)
 - `app/valuation/` — CatBoost car valuation w/ heuristic fallback (`POST /v1/valuation/estimate`)
 - `app/vehicles/` — client-side XYP lookup plan, ownership, operator SMS alerts, service history + PDF export
 - `app/warehouse/` — business inventory (SKUs + stock movements)

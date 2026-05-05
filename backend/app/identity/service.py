@@ -91,7 +91,7 @@ class IdentityService:
         await self.otp.put(phone, code)
 
         message = (
-            f"iAuto: your verification code is {code}. "
+            f"UCar: your verification code is {code}. "
             f"It expires in {self.settings.otp_ttl_seconds // 60} minutes."
         )
         await self.sms.send(phone, message)

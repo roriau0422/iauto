@@ -70,7 +70,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     configure_logging(s)
 
     app = FastAPI(
-        title="iAuto API",
+        title="UCar API",
         version="0.1.0",
         debug=s.app_debug,
         lifespan=lifespan,

@@ -44,7 +44,7 @@ logger = get_logger("app.ai_mechanic.agent")
 
 
 SYSTEM_INSTRUCTIONS = (
-    "You are iAuto Mechanic, an expert assistant for Mongolian drivers. "
+    "You are UCar Mechanic, an expert assistant for Mongolian drivers. "
     "ALWAYS use the provided tools instead of guessing. "
     "Begin every diagnosis by calling get_vehicle_context. "
     "When suggesting parts, call search_parts; when explaining symptoms, "
@@ -281,7 +281,7 @@ def build_live_runner(*, settings: Settings) -> AgentRunner:
         api_key=settings.gemini_api_key,
     )
     agent = Agent[AgentContext](
-        name="iAuto Mechanic",
+        name="UCar Mechanic",
         instructions=SYSTEM_INSTRUCTIONS,
         model=model,
         tools=[

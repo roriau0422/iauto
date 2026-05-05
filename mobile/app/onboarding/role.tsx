@@ -71,7 +71,7 @@ export default function RolePick() {
         Хэн бэ?
       </Text>
       <Text variant="caption" tone="tertiary" style={{ marginTop: 6, lineHeight: 18, maxWidth: 280 }}>
-        iAuto-г жолоочийн эсвэл бизнесийн хэрэглээнд тохируулна. Дараа тохиргооноос солих
+        UCar-г жолоочийн эсвэл бизнесийн хэрэглээнд тохируулна. Дараа тохиргооноос солих
         боломжтой.
       </Text>
 

@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "iAuto",
+    "name": "UCar",
     "slug": "iauto",
     "version": "0.1.0",
     "orientation": "portrait",
@@ -12,7 +12,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "mn.iauto.app",
       "infoPlist": {
-        "NSCameraUsageDescription": "iAuto camera-аар хийн шил, хохирол, хэсэг танихад хэрэглэнэ.",
+        "NSCameraUsageDescription": "UCar camera-аар хийн шил, хохирол, хэсэг танихад хэрэглэнэ.",
         "NSMicrophoneUsageDescription": "AI Механикт хөдөлгүүрийн чимээ бичих, дуу хоолойгоор асуухад хэрэглэнэ.",
         "NSPhotoLibraryUsageDescription": "Зах зээл, Сошиал постонд зураг оруулахад хэрэглэнэ."
       }
@@ -43,8 +43,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "iAuto-д зургаа сонгож оруулахад хэрэглэнэ.",
-          "cameraPermission": "iAuto camera-аар зураг авахад хэрэглэнэ."
+          "photosPermission": "UCar-д зургаа сонгож оруулахад хэрэглэнэ.",
+          "cameraPermission": "UCar camera-аар зураг авахад хэрэглэнэ."
         }
       ],
       [
@@ -71,9 +71,9 @@
       "reactCompiler": true
     },
     "extra": {
-      "apiBaseUrl": "http://10.0.2.2:8000",
-      "apiBaseUrlIos": "http://localhost:8000",
-      "apiBaseUrlWeb": "http://localhost:8000"
+      "apiBaseUrl": "https://api.ucar.mn",
+      "apiBaseUrlIos": "https://api.ucar.mn",
+      "apiBaseUrlWeb": "https://api.ucar.mn"
     }
   }
 }

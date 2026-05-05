@@ -441,7 +441,7 @@ export default function AiSessionThread() {
                       <MaterialCommunityIcons name="creation" size={14} color="#fff" />
                     </View>
                     <Text variant="caption" weight="700">
-                      iAuto Механик
+                      UCar Механик
                     </Text>
                   </View>
                   <Text variant="body" style={{ marginTop: 6, lineHeight: 20 }}>

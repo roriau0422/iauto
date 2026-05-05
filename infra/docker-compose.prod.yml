@@ -143,11 +143,12 @@ services:
   worker:
     <<: *app-base
     command: ["arq", "app.workers.outbox_consumer.WorkerSettings"]
+    # Arq has no HTTP probe and the backend image has no `redis-cli`, so
+    # the previous redis-cli healthcheck always reported unhealthy. The
+    # worker's liveness is its log of `outbox_tick` callbacks; let Docker
+    # restart it on crash without a bogus probe.
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli -h redis ping || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
+      disable: true
     networks: [iauto-internal]
 
   migrate:

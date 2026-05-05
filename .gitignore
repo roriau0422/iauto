@@ -80,3 +80,12 @@ CLAUDE.md
 .VSCodeCounter/
 
 _design_source/
+# Smoke / scratch artefacts (generated during local testing)
+.iauto_token
+.iauto_biz_token
+.iauto_assets
+.biz_verify.json
+.dr_verify.json
+.tmp_reg_body.json
+.warning.png
+.engine.wav

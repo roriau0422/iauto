@@ -1,5 +1,5 @@
 /**
- * Brand wordmark — `i` in accent + `Auto` in text. From shared.jsx.
+ * Brand wordmark — `U` in accent + `Car` in text.
  */
 
 import { StyleSheet, View } from 'react-native';
@@ -11,8 +11,8 @@ export function Wordmark({ size = 22 }: { size?: number }) {
   const theme = useTheme();
   return (
     <View style={styles.row}>
-      <Text style={[styles.letter, { fontSize: size, color: theme.colors.accent2 }]}>i</Text>
-      <Text style={[styles.letter, { fontSize: size, color: theme.colors.text }]}>Auto</Text>
+      <Text style={[styles.letter, { fontSize: size, color: theme.colors.accent2 }]}>U</Text>
+      <Text style={[styles.letter, { fontSize: size, color: theme.colors.text }]}>Car</Text>
     </View>
   );
 }

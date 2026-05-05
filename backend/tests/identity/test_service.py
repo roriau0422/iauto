@@ -40,7 +40,7 @@ async def test_request_otp_sends_message_and_returns_code(
 
     assert len(sms.sent) == 1
     assert sms.sent[0][0] == PHONE
-    assert "iAuto" in sms.sent[0][1]
+    assert "UCar" in sms.sent[0][1]
     # Console provider echoes the code for manual testing.
     assert result.debug_code is not None
     assert result.debug_code in sms.sent[0][1]

@@ -10,6 +10,8 @@ Run while the dev backend is up:
 
 from __future__ import annotations
 
+import os
+import socket
 import sys
 import time
 from dataclasses import dataclass, field
@@ -17,7 +19,32 @@ from typing import Any
 
 import httpx
 
-BASE = "http://localhost:8000"
+BASE = os.environ.get("SMOKE_BASE", "http://localhost:8000").rstrip("/")
+
+# Optional DNS pinning — useful when running against a Cloudflare-fronted
+# host before local DNS has propagated (e.g. `api.ucar.mn`). Set
+# `SMOKE_RESOLVE=host:ip` and we'll force `getaddrinfo` to return that ip
+# for the host. Multiple entries are comma-separated.
+_resolve_overrides: dict[str, str] = {}
+for entry in os.environ.get("SMOKE_RESOLVE", "").split(","):
+    entry = entry.strip()
+    if not entry:
+        continue
+    host, _, ip = entry.partition(":")
+    if host and ip:
+        _resolve_overrides[host.lower()] = ip
+
+
+if _resolve_overrides:
+    _real_getaddrinfo = socket.getaddrinfo
+
+    def _patched_getaddrinfo(host: object, *args: Any, **kwargs: Any) -> Any:
+        if isinstance(host, str) and host.lower() in _resolve_overrides:
+            return _real_getaddrinfo(_resolve_overrides[host.lower()], *args, **kwargs)
+        return _real_getaddrinfo(host, *args, **kwargs)
+
+    socket.getaddrinfo = _patched_getaddrinfo  # type: ignore[assignment]
+    print(f"  DNS overrides: {_resolve_overrides}")
 
 
 # Map of path-group -> list of (status, message). Filled as we go.

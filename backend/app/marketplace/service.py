@@ -403,6 +403,9 @@ class MarketplaceService:
             reservation_id=str(reservation.id),
             driver_id=str(driver_id),
         )
+        # `updated_at` carries `onupdate=func.now()`, so flush expires it.
+        # Refresh so the response model can serialize without lazy-load.
+        await self.session.refresh(reservation)
         return reservation
 
     async def list_reservations_for_driver(
