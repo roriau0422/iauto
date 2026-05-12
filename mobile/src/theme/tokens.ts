@@ -1,5 +1,5 @@
 /**
- * iAuto design tokens — direct port of project/styles.css.
+ * UCar design tokens — direct port of project/styles.css.
  *
  * "Immersive blue gradients, glassy" — vibe 0/3 from the design chat.
  * Dark-first; light theme is a light-mode rework of the same accents.

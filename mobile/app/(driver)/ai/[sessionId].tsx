@@ -387,7 +387,7 @@ export default function AiSessionThread() {
   return (
     <Screen scroll={false} edges={['top', 'bottom']}>
       <ScreenHeader
-        sub="iAUTO МЕХАНИК"
+        sub="UCAR МЕХАНИК"
         title="Оношилгоо"
         left={
           <IconButton onPress={() => router.back()}>

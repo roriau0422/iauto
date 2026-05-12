@@ -50,7 +50,7 @@ export default function AiSessionList() {
   return (
     <Screen scroll>
       <ScreenHeader
-        sub="iAUTO МЕХАНИК"
+        sub="UCAR МЕХАНИК"
         title="Оношилгоо"
         right={<Chip label="Pro" tone="accent" />}
       />

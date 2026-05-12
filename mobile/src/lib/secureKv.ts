@@ -2,7 +2,7 @@
  * Platform-aware secure key-value store.
  *
  * Native (iOS/Android): expo-secure-store — Keychain / EncryptedSharedPreferences.
- * Web: localStorage. Web isn't a supported production target for iAuto, but
+ * Web: localStorage. Web isn't a supported production target for UCar, but
  *      Metro's web bundler is what `expo start` opens by default and crashing
  *      on first paint there ruins the dev loop. The web build is "good enough
  *      for layout previews", not a security boundary.
